@@ -39,27 +39,27 @@ impl PartialSector {
     }
     fn try_fetch_or_decode_lat_lon(&self, lat: &str, lon: &str) -> Option<Position> {
         if let Ok(position) = Position::try_new_from_es(lat, lon) {
-            return Some(position);
+            return Some(position.into());
         }
 
         for fix in &self.fixes {
             if fix.identifier == lat {
-                return Some((fix.position));
+                return Some((fix.position.into()));
             }
         }
         for vor in &self.vors {
             if vor.identifier == lat {
-                return Some((vor.position));
+                return Some((vor.position.into()));
             }
         }
         for ndb in &self.ndbs {
             if ndb.identifier == lat {
-                return Some((ndb.position));
+                return Some((ndb.position.into()));
             }
         }
         for airport in &self.airports {
             if airport.identifier == lat {
-                return Some((airport.position));
+                return Some((airport.position.into()));
             }
         }
 
@@ -86,7 +86,7 @@ impl PartialSector {
         let tower_frequency = sections.next().ok_or(Error::InvalidWaypoint)?.to_owned();
         let lat = sections.next().ok_or(Error::InvalidWaypoint)?;
         let lon = sections.next().ok_or(Error::InvalidWaypoint)?;
-        let position = Position::try_new_from_es(lat, lon)?;
+        let position = Position::try_new_from_es(lat, lon)?.validate()?;
         let airspace_class: AirspaceClass =
             sections.next().ok_or(Error::InvalidWaypoint)?.parse()?;
 
@@ -131,8 +131,8 @@ impl PartialSector {
         let lat_b = sections.next().ok_or(Error::InvalidRunway)?;
         let lon_b = sections.next().ok_or(Error::InvalidRunway)?;
 
-        let pos_a = Position::try_new_from_es(lat_a, lon_a)?;
-        let pos_b = Position::try_new_from_es(lat_b, lon_b)?;
+        let pos_a = Position::try_new_from_es(lat_a, lon_a)?.validate()?;
+        let pos_b = Position::try_new_from_es(lat_b, lon_b)?.validate()?;
 
         let airport = sections.next().ok_or(Error::InvalidRunway)?;
         let airport = self
@@ -180,7 +180,7 @@ impl PartialSector {
         let frequency = sections.next().ok_or(Error::InvalidVorOrNdb)?.to_owned();
         let lat = sections.next().ok_or(Error::InvalidVorOrNdb)?;
         let lon = sections.next().ok_or(Error::InvalidVorOrNdb)?;
-        let position = Position::try_new_from_es(lat, lon)?;
+        let position = Position::try_new_from_es(lat, lon)?.validate()?;
 
         match beacon_type {
             BeaconType::Ndb => {
@@ -208,7 +208,7 @@ impl PartialSector {
         let identifier = sections.next().ok_or(Error::InvalidFix)?.to_owned();
         let lat = sections.next().ok_or(Error::InvalidFix)?;
         let lon = sections.next().ok_or(Error::InvalidFix)?;
-        let position = Position::try_new_from_es(lat, lon)?;
+        let position = Position::try_new_from_es(lat, lon)?.validate()?;
         let fix = Fix {
             identifier,
             position,
@@ -223,16 +223,22 @@ impl PartialSector {
         // Get the colour from the last section. If there is one, remove that element.
         let colour = sections.last().and_then(|section| self.try_fetch_or_decode_colour(section));
         if colour.is_some() { sections.pop(); };
+//sections: ["AoR", "Milano", "ACC", "N043.34.13.000", "E008.19.18.199", "N043.42.07.000", "E007.50.15.000", "COLOR_AoRcenter1"]
         
         // Determine whether this is a new section (with a name), or a continuation of a previous section.
+        let mut first_coord_index = 0;
         let name = if sections.len() > 4 {
-            let first_coord_index = sections.len() - 4;
+            first_coord_index = sections.len() - 4;
             Some(sections[0..first_coord_index].join(" "))
         } else if sections.len() == 4 {
             None
         } else {
             return Err(Error::InvalidArtccEntry);
         };
+
+        let pos_a = self.try_fetch_or_decode_lat_lon(sections[first_coord_index], sections[first_coord_index + 1]).ok_or(Error::InvalidArtccEntry)?;
+        let pos_b = self.try_fetch_or_decode_lat_lon(sections[first_coord_index + 2], sections[first_coord_index + 3]).ok_or(Error::InvalidArtccEntry)?;
+
 
         // Determine which storage to use.
         let storage = match line_type {
@@ -243,76 +249,31 @@ impl PartialSector {
             ArtccOrAirwayLineType::HighAirway => &mut self.high_airways,
         };
 
+        let name_exists = name.is_some();
+
         let element = if let Some(name) = name {
-            if let Some(true) = storage.last().map(|element| element.name == name) {
-                storage.last_mut().unwrap()
+            if let Some(element) = storage.iter_mut().find(|element| element.name == name) {
+                element
             } else {
-                let new_element = MultiLineMaybeColoured { name, lines: vec![]  };
-                storage.push(new_element);
+                storage.push(MultiLineMaybeColoured { name, lines: vec![] });
                 storage.last_mut().unwrap()
             }
         } else {
-            
+            storage.last_mut().ok_or(Error::InvalidArtccEntry)?
         };
 
 
-        todo!()
+        let line = pos_a.validate().and_then(|pos_a| pos_b.validate().map(|pos_b| MaybeColouredLine { line: Line { start: pos_a, end: pos_b }, colour })).ok();
         
-    }
-
-    pub fn parse_multi_line_line(
-        &mut self,
-        value: &str,
-        artcc_entry_type: ArtccOrAirwayLineType,
-    ) -> SectorResult<()> {
-        let mut sections = value.split_whitespace().collect::<Vec<_>>();
-        let mut label = String::new();
-        let mut length = sections.len();
-        if length < 5 {
-            return Err(Error::InvalidArtccEntry);
-        }
-        while length > 4 {
-            length -= 1;
-            label.push_str(sections.remove(0));
-            if length != 4 {
-                label.push(' ');
+        if let Some(line) = line {
+            element.lines.push(line);
+        } else {
+            if !name_exists {
+                return Err(Error::InvalidArtccEntry);
             }
         }
-
-        let mut sections = sections.into_iter();
-
-        let lat = sections.next().ok_or(Error::InvalidFix)?;
-        let lon = sections.next().ok_or(Error::InvalidFix)?;
-        let pos_a = self
-            .try_fetch_or_decode_lat_lon(lat, lon)
-            .ok_or(Error::InvalidArtccEntry)?;
-        let lat = sections.next().ok_or(Error::InvalidFix)?;
-        let lon = sections.next().ok_or(Error::InvalidFix)?;
-        let pos_b = self
-            .try_fetch_or_decode_lat_lon(lat, lon)
-            .ok_or(Error::InvalidArtccEntry)?;
-        let line = Line {
-            start: pos_a,
-            end: pos_b,
-        };
-        let vec_to_push_to = match artcc_entry_type {
-            ArtccOrAirwayLineType::Artcc => &mut self.artcc_entries,
-            ArtccOrAirwayLineType::ArtccLow => &mut self.artcc_low_entries,
-            ArtccOrAirwayLineType::ArtccHigh => &mut self.artcc_high_entries,
-            ArtccOrAirwayLineType::LowAirway => &mut self.low_airways,
-            ArtccOrAirwayLineType::HighAirway => &mut self.high_airways,
-        };
-
-        if let Some(entry) = vec_to_push_to.iter_mut().find(|entry| entry.name == label) {
-            entry.lines.push(line);
-        } else {
-            vec_to_push_to.push(MultiLine {
-                name: label,
-                lines: vec![line],
-            });
-        }
-
         Ok(())
+        
     }
 
     pub fn parse_sid_star_line(
@@ -334,9 +295,9 @@ impl PartialSector {
             .next()
             .and_then(|x| self.try_fetch_or_decode_colour(x));
         let line = self
-            .try_fetch_or_decode_lat_lon(lat_a, lon_a)
+            .try_fetch_or_decode_lat_lon(lat_a, lon_a).and_then(|pos| pos.validate().ok())
             .and_then(|start_pos| {
-                self.try_fetch_or_decode_lat_lon(lat_b, lon_b)
+                self.try_fetch_or_decode_lat_lon(lat_b, lon_b).and_then(|pos| pos.validate().ok())
                     .and_then(|end_pos| {
                         Some(Line {
                             start: start_pos,

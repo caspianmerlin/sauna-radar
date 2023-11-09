@@ -51,6 +51,9 @@ impl<R: BufRead> SctReader<R> {
                     }
                     continue;
                 }
+                if line.starts_with("#define") {
+                    self.current_section = FileSection::ColourDefinitions;
+                }
 
                 let result = match self.current_section {
                     FileSection::ColourDefinitions => self.partial_sector.parse_colour_line(line),
@@ -66,19 +69,19 @@ impl<R: BufRead> SctReader<R> {
                     FileSection::Fixes => self.partial_sector.parse_fixes_line(line),
                     FileSection::Artcc => self
                         .partial_sector
-                        .parse_multi_line_line(line, ArtccOrAirwayLineType::Artcc),
+                        .parse_artcc_or_airway_line(line, ArtccOrAirwayLineType::Artcc),
                     FileSection::ArtccHigh => self
                         .partial_sector
-                        .parse_multi_line_line(line, ArtccOrAirwayLineType::ArtccHigh),
+                        .parse_artcc_or_airway_line(line, ArtccOrAirwayLineType::ArtccHigh),
                     FileSection::ArtccLow => self
                         .partial_sector
-                        .parse_multi_line_line(line, ArtccOrAirwayLineType::ArtccLow),
+                        .parse_artcc_or_airway_line(line, ArtccOrAirwayLineType::ArtccLow),
                     FileSection::LowAirway => self
                         .partial_sector
-                        .parse_multi_line_line(line, ArtccOrAirwayLineType::LowAirway),
+                        .parse_artcc_or_airway_line(line, ArtccOrAirwayLineType::LowAirway),
                     FileSection::HighAirway => self
                         .partial_sector
-                        .parse_multi_line_line(line, ArtccOrAirwayLineType::HighAirway),
+                        .parse_artcc_or_airway_line(line, ArtccOrAirwayLineType::HighAirway),
                     FileSection::Sid => self
                         .partial_sector
                         .parse_sid_star_line(line, SidStarType::Sid),
@@ -88,7 +91,7 @@ impl<R: BufRead> SctReader<R> {
                     _ => Ok(()),
                 };
                 if let Err(e) = result {
-                    self.errors.push((line.to_owned(), e));
+                    self.errors.push((line.to_owned(), e));;
                 }
             }
 
@@ -150,7 +153,7 @@ fn parse_file_section(value: &str) -> SectorResult<FileSection> {
 
 #[test]
 fn test() {
-    let file = File::open(r#"C:\Users\chpme\AppData\Roaming\EuroScope\UK\Data\Sector\UK_2023_11.sct"#).unwrap();
+    let file = File::open(r#"C:\Users\Caspian\Documents\EuroScope\LIXX-Italy_20231105173607-231101-0001.sct"#).unwrap();
     let reader = BufReader::new(file);
     let sct_reader = SctReader::new(reader);
     if let Err(e) = sct_reader.try_read() {

@@ -1,11 +1,12 @@
-use std::fmt::Display;
+use std::{fmt::Display, marker::PhantomData};
 
 use crate::{error::Error, SectorResult};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Position {
+pub struct Position<Status = MaybeValid> {
     pub lat: f64,
     pub lon: f64,
+    status: std::marker::PhantomData<Status>,
 }
 impl Position {
     pub fn try_new_from_es(lat: &str, lon: &str) -> SectorResult<Position> {
@@ -13,16 +14,32 @@ impl Position {
             .ok_or(Error::InvalidPosition)?;
         let lon = coord_from_es(lon)
             .ok_or(Error::InvalidPosition)?;
-        Ok(Position { lat, lon })
+        Ok(Position { lat, lon, status: PhantomData })
     }
-    pub fn validate(self) -> SectorResult<Self> {
+    pub fn validate(self) -> SectorResult<Position<Valid>> {
         let valid = (-90.0..=90.0).contains(&self.lat) &&
         (-180.0..=180.0).contains(&self.lon);
         return if valid {
-            Ok(self)
+            Ok(
+                Position {
+                    lat: self.lat,
+                    lon: self.lon,
+                    status: PhantomData,
+                }
+            )
         } else {
             Err(Error::InvalidPosition)
         };
+    }
+}
+
+impl From<Position<Valid>> for Position<MaybeValid> {
+    fn from(value: Position<Valid>) -> Self {
+        Position {
+            lat: value.lat,
+            lon: value.lon,
+            status: PhantomData,
+        }
     }
 }
 
@@ -87,3 +104,8 @@ impl TryFrom<f32> for Heading {
         Ok(Heading(value))
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MaybeValid;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Valid;

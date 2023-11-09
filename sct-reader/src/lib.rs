@@ -10,6 +10,7 @@ mod position;
 mod reader;
 mod sector;
 mod waypoint;
+mod line;
 
 pub type SectorResult<T> = std::result::Result<T, error::Error>;
 

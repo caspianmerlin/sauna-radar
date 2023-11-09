@@ -1,25 +1,25 @@
 use std::fmt::Display;
 
 use crate::{
-    position::{Heading, Position},
+    position::{Heading, Position, Valid},
     AirspaceClass,
 };
 
 pub trait Waypoint {
     fn identifier(&self) -> &String;
-    fn position(&self) -> Position;
+    fn position(&self) -> Position<Valid>;
 }
 
 #[derive(Debug, Clone)]
 pub struct Fix {
     pub identifier: String,
-    pub position: Position,
+    pub position: Position<Valid>,
 }
 impl Waypoint for Fix {
     fn identifier(&self) -> &String {
         &self.identifier
     }
-    fn position(&self) -> Position {
+    fn position(&self) -> Position<Valid> {
         self.position
     }
 }
@@ -27,14 +27,14 @@ impl Waypoint for Fix {
 #[derive(Debug, Clone)]
 pub struct Vor {
     pub identifier: String,
-    pub position: Position,
+    pub position: Position<Valid>,
     pub frequency: String,
 }
 impl Waypoint for Vor {
     fn identifier(&self) -> &String {
         &self.identifier
     }
-    fn position(&self) -> Position {
+    fn position(&self) -> Position<Valid> {
         self.position
     }
 }
@@ -47,14 +47,14 @@ impl Vor {
 #[derive(Debug, Clone)]
 pub struct Ndb {
     pub identifier: String,
-    pub position: Position,
+    pub position: Position<Valid>,
     pub frequency: String,
 }
 impl Waypoint for Ndb {
     fn identifier(&self) -> &String {
         &self.identifier
     }
-    fn position(&self) -> Position {
+    fn position(&self) -> Position<Valid> {
         self.position
     }
 }
@@ -67,7 +67,7 @@ impl Ndb {
 #[derive(Debug, Clone)]
 pub struct Airport {
     pub identifier: String,
-    pub position: Position,
+    pub position: Position<Valid>,
     pub tower_frequency: String,
     pub airspace_class: AirspaceClass,
     pub runways: Vec<RunwayStrip>,
@@ -76,7 +76,7 @@ impl Waypoint for Airport {
     fn identifier(&self) -> &String {
         &self.identifier
     }
-    fn position(&self) -> Position {
+    fn position(&self) -> Position<Valid> {
         self.position
     }
 }
@@ -98,8 +98,8 @@ pub struct RunwayStrip {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RunwayEnd {
     pub number: u8,
-    pub td_threshold_pos: Position,
-    pub se_threshold_pos: Position,
+    pub td_threshold_pos: Position<Valid>,
+    pub se_threshold_pos: Position<Valid>,
     pub modifier: RunwayModifier,
     pub magnetic_hdg: Heading,
 }
