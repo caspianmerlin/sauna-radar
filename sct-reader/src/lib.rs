@@ -3,13 +3,13 @@
 use std::str::FromStr;
 
 use error::Error;
-mod reader;
-mod position;
-mod waypoint;
-mod sector;
 mod colour;
 mod error;
 mod partial;
+mod position;
+mod reader;
+mod sector;
+mod waypoint;
 
 pub type SectorResult<T> = std::result::Result<T, error::Error>;
 

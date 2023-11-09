@@ -1,7 +1,9 @@
 use std::fmt::Display;
 
-use crate::{position::{Position, Heading}, AirspaceClass};
-
+use crate::{
+    position::{Heading, Position},
+    AirspaceClass,
+};
 
 pub trait Waypoint {
     fn identifier(&self) -> &String;
@@ -22,13 +24,11 @@ impl Waypoint for Fix {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Vor {
     pub identifier: String,
     pub position: Position,
     pub frequency: String,
-
 }
 impl Waypoint for Vor {
     fn identifier(&self) -> &String {
@@ -49,7 +49,6 @@ pub struct Ndb {
     pub identifier: String,
     pub position: Position,
     pub frequency: String,
-
 }
 impl Waypoint for Ndb {
     fn identifier(&self) -> &String {
@@ -90,7 +89,6 @@ impl Airport {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct RunwayStrip {
     pub end_a: RunwayEnd,
@@ -115,7 +113,13 @@ impl RunwayEnd {
         let se_threshold_pos = self.td_threshold_pos;
         let modifier = self.modifier.reciprocal();
         let magnetic_hdg = self.magnetic_hdg.reciprocal();
-        RunwayEnd { number, td_threshold_pos, se_threshold_pos, modifier, magnetic_hdg }
+        RunwayEnd {
+            number,
+            td_threshold_pos,
+            se_threshold_pos,
+            modifier,
+            magnetic_hdg,
+        }
     }
     fn reciprocal_number(&self) -> u8 {
         if self.number > 18 {
@@ -126,7 +130,7 @@ impl RunwayEnd {
     }
 }
 
-#[derive (Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunwayModifier {
     Left,
     Right,
@@ -148,12 +152,16 @@ impl RunwayModifier {
 
 impl Display for RunwayModifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            Self::Left => "L",
-            Self::Right => "R",
-            Self::Centre => "C",
-            Self::Grass => "G",
-            Self::None => "",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Left => "L",
+                Self::Right => "R",
+                Self::Centre => "C",
+                Self::Grass => "G",
+                Self::None => "",
+            }
+        )
     }
 }

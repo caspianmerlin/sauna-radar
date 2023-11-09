@@ -2,9 +2,6 @@ use std::str::FromStr;
 
 use crate::error::Error;
 
-
-
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Colour {
     pub r: u8,
@@ -13,7 +10,7 @@ pub struct Colour {
 }
 impl Colour {
     pub const fn new(r: u8, g: u8, b: u8) -> Self {
-        Self { r, g, b, }
+        Self { r, g, b }
     }
 }
 impl From<u32> for Colour {
@@ -27,6 +24,8 @@ impl From<u32> for Colour {
 impl FromStr for Colour {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.parse::<u32>().map_err(|_| Error::InvalidColourDefinition).map(Self::from)
+        s.parse::<u32>()
+            .map_err(|_| Error::InvalidColourDefinition)
+            .map(Self::from)
     }
 }

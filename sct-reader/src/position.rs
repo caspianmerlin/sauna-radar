@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
-use crate::{SectorResult, error::Error};
-
+use crate::{error::Error, SectorResult};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Position {
@@ -10,24 +9,32 @@ pub struct Position {
 }
 impl Position {
     pub fn try_new_from_es(lat: &str, lon: &str) -> SectorResult<Position> {
-        let lat = coord_from_es(lat).and_then(|lat| (-90.0..=90.0).contains(&lat).then_some(lat)).ok_or(Error::InvalidPosition)?;
-        let lon = coord_from_es(lon).and_then(|lon| (-180.0..=180.0).contains(&lon).then_some(lon)).ok_or(Error::InvalidPosition)?;
-        Ok(
-            Position {
-                lat,
-                lon,
-            }
-        )
+        let lat = coord_from_es(lat)
+            .ok_or(Error::InvalidPosition)?;
+        let lon = coord_from_es(lon)
+            .ok_or(Error::InvalidPosition)?;
+        Ok(Position { lat, lon })
+    }
+    pub fn validate(self) -> SectorResult<Self> {
+        let valid = (-90.0..=90.0).contains(&self.lat) &&
+        (-180.0..=180.0).contains(&self.lon);
+        return if valid {
+            Ok(self)
+        } else {
+            Err(Error::InvalidPosition)
+        };
     }
 }
-
-
 
 
 //N051.07.25.010
 //E002.39.13.334
 pub fn coord_from_es(value: &str) -> Option<f64> {
-    let multiply_by = if value.starts_with(&['N', 'n', 'E', 'e']) { 1.0 } else { -1.0 };
+    let multiply_by = if value.starts_with(&['N', 'n', 'E', 'e']) {
+        1.0
+    } else {
+        -1.0
+    };
     let mut sections = value.get(1..)?.splitn(3, '.');
     let degs = sections.next()?.parse::<f64>().ok()?;
     let mins = sections.next()?.parse::<f64>().ok()?;
