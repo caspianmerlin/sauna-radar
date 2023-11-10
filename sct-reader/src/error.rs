@@ -17,6 +17,9 @@ pub enum Error {
     InvalidFix,
     InvalidArtccEntry,
     InvalidSidStarEntry,
+    InvalidGeoEntry,
+    InvalidRegion,
+    InvalidLabel,
 }
 
 impl Display for Error {
@@ -37,9 +40,12 @@ impl Display for Error {
                 Self::InvalidRunway => "Invalid runway",
                 Self::InvalidHeading => "Invalid heading",
                 Self::InvalidVorOrNdb => "Invalid VOR or NDB",
-                Self::InvalidFix => "Invalid Fix",
+                Self::InvalidFix => "Invalid fix",
                 Self::InvalidArtccEntry => "Invalid ARTCC entry",
                 Self::InvalidSidStarEntry => "Invalid SID / STAR entry",
+                Self::InvalidGeoEntry => "Invalid geo Entry",
+                Self::InvalidRegion => "Invalid region",
+                Self::InvalidLabel => "Invalid label",
             }
         )
     }

@@ -9,6 +9,9 @@ pub struct Position<Status = MaybeValid> {
     status: std::marker::PhantomData<Status>,
 }
 impl Position {
+    pub fn new(lat: f64, lon: f64) -> Position {
+        Position { lat, lon, status: PhantomData }
+    }
     pub fn try_new_from_es(lat: &str, lon: &str) -> SectorResult<Position> {
         let lat = coord_from_es(lat)
             .ok_or(Error::InvalidPosition)?;

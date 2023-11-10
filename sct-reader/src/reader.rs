@@ -18,7 +18,7 @@ pub struct SctReader<R: BufRead> {
     source: R,
     current_section: FileSection,
     partial_sector: PartialSector,
-    errors: Vec<(String, Error)>,
+    errors: Vec<(usize, String, Error)>,
 }
 impl<R: BufRead> SctReader<R> {
     pub fn new(source: R) -> Self {
@@ -31,7 +31,6 @@ impl<R: BufRead> SctReader<R> {
     }
 
     pub fn try_read(mut self) -> SectorResult<Sector> {
-        let timer = Instant::now();
         for (mut line_number, line) in self.source.lines().enumerate() {
             if let Ok(line) = line {
                 let mut line = line.trim_end();
@@ -47,7 +46,7 @@ impl<R: BufRead> SctReader<R> {
                 if line.starts_with('[') {
                     match parse_file_section(line) {
                         Ok(new_section) => self.current_section = new_section,
-                        Err(e) => self.errors.push((line.to_owned(), e)),
+                        Err(e) => self.errors.push((line_number + 1, line.to_owned(), e)),
                     }
                     continue;
                 }
@@ -88,22 +87,20 @@ impl<R: BufRead> SctReader<R> {
                     FileSection::Star => self
                         .partial_sector
                         .parse_sid_star_line(line, SidStarType::Star),
-                    _ => Ok(()),
+                    FileSection::Geo => self.partial_sector.parse_geo_line(line),
+                    FileSection::Regions => self.partial_sector.parse_region_line(line),
+                    FileSection::Labels => self.partial_sector.parse_label_line(line),
                 };
                 if let Err(e) = result {
-                    self.errors.push((line.to_owned(), e));;
+                    self.errors.push((line_number + 1, line.to_owned(), e));;
                 }
             }
 
         }
-        let elapsed = timer.elapsed();
-        let mut output = BufWriter::new(File::create("output.txt").unwrap());
-        writeln!(output, "Took {} ms", elapsed.as_millis()).unwrap();
-        write!(output, "{:#?}", self.partial_sector).unwrap();
-
-        write!(output, "\n\n{:#?}", self.errors).unwrap();
-
-        todo!()
+        
+        let mut sector: Sector = self.partial_sector.try_into()?;
+        sector.non_critical_errors = self.errors;
+        Ok(sector)
     }
 }
 
@@ -153,10 +150,24 @@ fn parse_file_section(value: &str) -> SectorResult<FileSection> {
 
 #[test]
 fn test() {
-    let file = File::open(r#"C:\Users\Caspian\Documents\EuroScope\LIXX-Italy_20231105173607-231101-0001.sct"#).unwrap();
+
+    let file = File::open(r#"C:\Users\chpme\AppData\Roaming\EuroScope\UK\Data\Sector\UK_2023_11.sct"#).unwrap();
     let reader = BufReader::new(file);
     let sct_reader = SctReader::new(reader);
-    if let Err(e) = sct_reader.try_read() {
-        println!("{:#?}", e);
+    let timer = Instant::now();
+    match sct_reader.try_read() {
+        Ok(sector) => {
+            let elapsed = timer.elapsed();
+            let mut output = BufWriter::new(File::create("output.txt").unwrap());
+            writeln!(output, "Took {} ms", elapsed.as_millis()).unwrap();
+            write!(output, "{:#?}", sector).unwrap();
+            writeln!(output).unwrap();
+            for (line_number, line, error) in sector.non_critical_errors {
+                writeln!(output, "{} on line {}:", error, line_number).unwrap();
+                writeln!(output, "{}", line).unwrap();
+                writeln!(output).unwrap();
+            }
+        },
+        Err(error) => println!("{:#?}", error),
     }
 }

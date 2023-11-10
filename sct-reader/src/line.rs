@@ -49,6 +49,7 @@ impl Line for ColouredLine {
     }
 }
 
+#[derive(Debug)]
 pub struct LineGroup<L: Line> {
     pub name: String,
     pub lines: Vec<L>,

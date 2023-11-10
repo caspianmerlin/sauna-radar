@@ -2,15 +2,15 @@ use crate::{error::Error, position, SectorResult};
 
 #[derive(Debug, Clone, Default)]
 pub struct PartialSectorInfo {
-    name: Option<String>,
-    default_callsign: Option<String>,
-    default_airport: Option<String>,
-    default_centre_pt_lat: Option<f64>,
-    default_centre_pt_lon: Option<f64>,
-    n_mi_per_deg_lat: Option<f32>,
-    n_mi_per_deg_lon: Option<f32>,
-    magnetic_variation: Option<f32>,
-    sector_scale: Option<f32>,
+    pub name: Option<String>,
+    pub default_callsign: Option<String>,
+    pub default_airport: Option<String>,
+    pub default_centre_pt_lat: Option<f64>,
+    pub default_centre_pt_lon: Option<f64>,
+    pub n_mi_per_deg_lat: Option<f32>,
+    pub n_mi_per_deg_lon: Option<f32>,
+    pub magnetic_variation: Option<f32>,
+    pub sector_scale: Option<f32>,
 
     current_line: usize,
 }
