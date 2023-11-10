@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 sct-reader = { path = "../sct-reader" }
+macroquad = "0.4.4"
+clap = { version = "4.4.7", features = ["derive"] }
