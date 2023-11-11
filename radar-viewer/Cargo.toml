@@ -7,7 +7,9 @@ edition = "2021"
 
 [dependencies]
 sct-reader = { path = "../sct-reader" }
+ipc = { path = "../ipc" }
 macroquad = "0.4.4"
 clap = { version = "4.4.7", features = ["derive"] }
 macroquad-profiler = "0.2.0"
 earcutr = "0.4.3"
+bincode = "1.3.3"

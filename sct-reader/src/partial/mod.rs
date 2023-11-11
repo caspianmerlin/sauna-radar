@@ -489,9 +489,9 @@ impl PartialSector {
                 };
                 current_region_group
             } else {
-                let mut region_group = PartialRegionGroup::new("DEFAULT".to_string());
+                let mut region_group = PartialRegionGroup::new("noname".to_string());
                 region_group.regions.push(PartialRegion::default());
-                self.current_region_name = Some(String::from("DEFAULT"));
+                self.current_region_name = Some(String::from("noname"));
                 self.regions.push(region_group);
                 self.regions.last_mut().unwrap()
             };

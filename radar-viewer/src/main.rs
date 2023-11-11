@@ -1,21 +1,24 @@
+#![allow(unused)]
+
 use std::{fs::File, io::BufReader, sync::mpsc, thread};
 
 use args::Args;
 use asr::Asr;
 use clap::Parser;
 use macroquad::{
-    prelude::{Color, Vec2, BLACK, BLUE, GREEN, PINK, WHITE},
-    shapes::{draw_line, draw_poly_lines, draw_triangle, draw_triangle_lines},
+    prelude::{Color, Vec2, BLACK, BLUE, WHITE},
+    shapes::{draw_poly_lines, draw_triangle},
     text::draw_text,
     window::{self, clear_background, next_frame},
 };
-use radar::{display::RadarDisplay, WINDOW_HT_N_MI, line::LineType};
-use sct_reader::line::Line as SectorLine;
-use sct_reader::{line::ColouredLine, reader::SctReader, sector::Sector};
+use radar::{position_calc::PositionCalculator, WINDOW_HT_N_MI, line::LineType};
+
+use sct_reader::{reader::SctReader, sector::Sector};
 
 mod args;
 mod asr;
 mod radar;
+mod sector;
 
 
 
@@ -61,10 +64,10 @@ async fn main() {
                 sector = Some(new_sector);
                 asr = new_asr;
                 let sector = sector.as_ref().unwrap();
-                position_calculator = Some(RadarDisplay::new(
+                position_calculator = Some(PositionCalculator::new(
                     sector.sector_info.default_centre_pt.lat as f32,
                     sector.sector_info.default_centre_pt.lon as f32,
-                    WINDOW_HT_N_MI,
+                    args.screen_height_n_mi.map(|x| x as f32).unwrap_or(WINDOW_HT_N_MI),
                     sector.sector_info.n_mi_per_deg_lat,
                     sector.sector_info.n_mi_per_deg_lon,
                 ));
@@ -268,16 +271,8 @@ async fn main() {
                     airport.draw();
                 }
 
-                // for fix in sector.fixes.iter() {
-                //     let fix_y = position_calculator.lat_to_window_y(fix.position.lat as f32);
-                //     let fix_x = position_calculator.lon_to_window_x(fix.position.lon as f32);
-                //
-                // }
-
-
-
                 macroquad_profiler::profiler(Default::default());
-                // Prototype drawing
+
             }
         }
 
@@ -292,25 +287,6 @@ enum State {
 
 
 
-// Work out window dimensions
-// Decide how many nms = window height (e.g. 70)
-// Window height px / nms = pixels per nautical mile
-// We know screen centre lat_long
-// let deg_diff = pos.lat - screen_centre.lat;
-// let offset_px_from_centre = deg_diff * nm_per_lat * pixels_per_nautical mile
-// let offset_lat_from_top = screen_height_px - (offset_px_from_centre - (screen_ht_px / 0.5));
-
-// window_dimensions = 800.0 * 600;
-// window_ht_px = 600.0;
-// window_ht_nm = 70.0;
-// px_per_nm = 8.0;
-
-// screen_centre_lat_lon = 50.0, 20.0;
-// origin_lat = ((screen_ht_px / 2.0) / (px_per_nautical_mile * 60.0))
-// our_pos = 51.0, 20.0;
-// deg_diff_lat = 51.0 - 50.0 = 1.0;
-// offset_px_from_centre = 1.0 * 60.0 * 8.0 = 480.0;
-// offset_px_from_top =
 
 
 

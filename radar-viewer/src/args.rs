@@ -19,4 +19,7 @@ pub struct Args {
 
     #[arg(short, value_name = "AIRPORT")]
     pub centre_airport: Option<String>,
+
+    #[arg(short = 'h', value_name = "NAUTICAL MILES")]
+    pub screen_height_n_mi: Option<u32>,
 }

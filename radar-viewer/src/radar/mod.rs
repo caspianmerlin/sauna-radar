@@ -2,6 +2,8 @@ use macroquad::prelude::Color;
 
 pub mod line;
 pub mod display;
+pub mod position_calc;
+
 
 pub const WINDOW_HT_N_MI: f32 = 70.0;
 
