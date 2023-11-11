@@ -19,5 +19,8 @@ pub struct Args {
     
     /// Filters file to apply filters from and save filters to
     #[arg(short, value_name = "FILTERS FILE PATH")]
-    pub filters_file: Option<PathBuf>,   
+    pub filters_file: Option<PathBuf>,
+
+    #[arg(short, value_name = "AIRPORT")]
+    pub centre_airport: Option<String>,
 }

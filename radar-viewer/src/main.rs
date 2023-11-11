@@ -8,7 +8,7 @@ use sct_reader::line::Line as SectorLine;
 
 mod args;
 
-const WINDOW_HT_N_MI: f32 = 50.0;
+const WINDOW_HT_N_MI: f32 = 3.0;
 
 #[macroquad::main("Sauna Radar")]
 async fn main() {
@@ -23,7 +23,13 @@ async fn main() {
     // Attempt to load sector file
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
-        let sector = SctReader::new(BufReader::new(File::open(args.sector_file).unwrap())).try_read().unwrap();
+        let mut sector = SctReader::new(BufReader::new(File::open(args.sector_file).unwrap())).try_read().unwrap();
+        // Set centre airport if there is one
+        if let Some(centre_airport) = args.centre_airport {
+            if let Some(airport) = sector.airports.iter().find(|x| x.identifier == centre_airport) {
+                sector.sector_info.default_centre_pt = airport.position
+            }
+        }
         tx.send(sector).unwrap();
     });
     
