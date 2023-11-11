@@ -418,9 +418,6 @@ impl PartialSector {
             return Ok(());
         }
 
-        // If we have got here, it is a non-name line
-        // It is not proper for this to occur unless a name is defined
-        let current_region_name = self.current_region_name.as_ref().unwrap();
 
         // We first check to see if a colour is defined
         // If there is a colour, then we set it
@@ -430,12 +427,28 @@ impl PartialSector {
             None
         };
 
-        // We also retrieve the current region we're working on
-        let current_region_group = if let Some(region_group) = self.regions.iter_mut().find(|region_group| &region_group.name == current_region_name) {
-            region_group
+        // If we have got here, it is a non-name line
+        // It is not proper for this to occur unless a name is defined
+        let current_region_group = if let Some(current_region_name) = self.current_region_name.as_ref() {
+            let current_region_group = if let Some(region_group) = self.regions.iter_mut().find(|region_group| &region_group.name == current_region_name) {
+                region_group
+            } else {
+                self.regions.last_mut().unwrap()
+            };
+            current_region_group
         } else {
-            self.regions.last_mut().unwrap()
+                let mut region_group = PartialRegionGroup::new("DEFAULT".to_string());
+                region_group.regions.push(PartialRegion::default());
+                self.current_region_name = Some(String::from("DEFAULT"));
+                self.regions.push(region_group);
+                self.regions.last_mut().unwrap()
         };
+        // We also retrieve the current region we're working on
+        
+
+        
+
+        
 
         // We get the position. This should be valid. Then we set it
         let position = Position::try_new_from_es(sections[sections.len() - 2], sections[sections.len() - 1]).and_then(|pos| pos.validate())?;
