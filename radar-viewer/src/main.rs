@@ -17,6 +17,45 @@ mod asr;
 
 const WINDOW_HT_N_MI: f32 = 70.0;
 
+//      Artcc,
+//     ArtccLow,
+//     ArtccHigh,
+//     AirwayLow,
+//     AirwayHigh,
+//     Sid,
+//     Star,
+//     Geo,
+
+const DEFAULT_ARTCC_COLOUR: Color = Color::new(0.4705882352941176, 0.4196078431372549, 0.2, 1.0);
+const DEFAULT_ARTCC_LOW_COLOUR: Color = Color::new(
+    0.1490196078431373,
+    0.3686274509803922,
+    0.3803921568627451,
+    1.0,
+);
+const DEFAULT_ARTCC_HIGH_COLOUR: Color = Color::new(
+    0.1490196078431373,
+    0.3686274509803922,
+    0.3803921568627451,
+    1.0,
+);
+const DEFAULT_AIRWAY_LOW_COLOUR: Color = Color::new(0.3490196078431373, 0., 0., 1.0);
+const DEFAULT_AIRWAY_HIGH_COLOUR: Color = Color::new(0.3490196078431373, 0., 0., 1.0);
+const DEFAULT_SID_COLOUR: Color = Color::new(
+    0.2705882352941176,
+    0.3058823529411765,
+    0.3450980392156863,
+    1.0,
+);
+const DEFAULT_STAR_COLOUR: Color = Color::new(0.4705882352941176, 0.4196078431372549, 0.2, 1.0);
+const DEFAULT_GEO_COLOUR: Color = Color::new(0., 0.5019607843137255, 0.2509803921568627, 1.0);
+const DEFAULT_FIX_COLOUR: Color = Color::new(
+    0.1490196078431373,
+    0.3686274509803922,
+    0.3803921568627451,
+    1.0,
+);
+
 #[macroquad::main("Sauna Radar")]
 async fn main() {
     // Get command line args
@@ -26,6 +65,7 @@ async fn main() {
 
     let mut lines = Vec::new();
     let mut fixes = Vec::new();
+    let mut airports = Vec::new();
     let mut regions = Vec::new();
 
     // Attempt to load sector file
@@ -67,55 +107,114 @@ async fn main() {
                 ));
                 let position_calculator = position_calculator.as_ref().unwrap();
                 // .filter(|line| position_calculator.is_within_screen_bounds(line.start().lat as f32, line.start().lon as f32) || position_calculator.is_within_screen_bounds(line.end().lat as f32, line.end().lon as f32)
-                for artcc_entry in sector
-                    .artcc_entries
-                    .iter()
-                    .filter(|entry| {
-                        asr.as_ref()
-                            .map(|asr| asr.artcc_boundary.contains(&entry.name))
-                            .unwrap_or(true)
-                    })
-                    .chain(sector.artcc_low_entries.iter().filter(|entry| {
-                        asr.as_ref()
-                            .map(|asr| asr.artcc_low_boundary.contains(&entry.name))
-                            .unwrap_or(true)
-                    }))
-                    .chain(sector.artcc_high_entries.iter().filter(|entry| {
-                        asr.as_ref()
-                            .map(|asr| asr.artcc_high_boundary.contains(&entry.name))
-                            .unwrap_or(true)
-                    }))
-                    .chain(sector.geo_entries.iter().filter(|entry| {
-                        asr.as_ref()
-                            .map(|asr| asr.geo.contains(&entry.name))
-                            .unwrap_or(true)
-                    }))
-                    .chain(sector.star_entries.iter().filter(|entry| {
-                        asr.as_ref()
-                            .map(|asr| asr.stars.contains(&entry.name))
-                            .unwrap_or(true)
-                    }))
-                    .chain(sector.sid_entries.iter().filter(|entry| {
-                        asr.as_ref()
-                            .map(|asr| asr.sids.contains(&entry.name))
-                            .unwrap_or(true)
-                    }))
-                    .chain(sector.low_airways.iter().filter(|entry| {
-                        asr.as_ref()
-                            .map(|asr| asr.low_airways.contains(&entry.name))
-                            .unwrap_or(true)
-                    }))
-                    .chain(sector.high_airways.iter().filter(|entry| {
-                        asr.as_ref()
-                            .map(|asr| asr.high_airways.contains(&entry.name))
-                            .unwrap_or(true)
-                    }))
-                {
-                    for line in artcc_entry.lines.iter() {
-                        let new_line = position_calculator.convert_line(line);
+
+                for entry in sector.artcc_entries.iter().filter(|entry| {
+                    asr.as_ref()
+                        .map(|asr| asr.artcc_boundary.contains(&entry.name))
+                        .unwrap_or(true)
+                }) {
+                    for line in entry.lines.iter() {
+                        let new_line = position_calculator.convert_line(line, LineType::Artcc);
                         lines.push(new_line);
                     }
                 }
+
+                for entry in sector.artcc_low_entries.iter().filter(|entry| {
+                    asr.as_ref()
+                        .map(|asr| asr.artcc_low_boundary.contains(&entry.name))
+                        .unwrap_or(true)
+                }) {
+                    for line in entry.lines.iter() {
+                        let new_line = position_calculator.convert_line(line, LineType::ArtccLow);
+                        lines.push(new_line);
+                    }
+                }
+
+                for entry in sector
+                    .artcc_high_entries
+                    .iter()
+                    .filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.artcc_high_boundary.contains(&entry.name))
+                            .unwrap_or(true)
+                    }) {
+                        for line in entry.lines.iter() {
+                            let new_line = position_calculator.convert_line(line, LineType::ArtccHigh);
+                            lines.push(new_line);
+                        }
+                    };
+
+
+                    for entry in sector
+                    .low_airways
+                    .iter()
+                    .filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.low_airways.contains(&entry.name))
+                            .unwrap_or(true)
+                    }) {
+                        for line in entry.lines.iter() {
+                            let new_line = position_calculator.convert_line(line, LineType::AirwayLow);
+                            lines.push(new_line);
+                        }
+                    };
+
+                    for entry in sector
+                    .high_airways
+                    .iter()
+                    .filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.high_airways.contains(&entry.name))
+                            .unwrap_or(true)
+                    }) {
+                        for line in entry.lines.iter() {
+                            let new_line = position_calculator.convert_line(line, LineType::AirwayHigh);
+                            lines.push(new_line);
+                        }
+                    };
+
+                    for entry in sector
+                    .sid_entries
+                    .iter()
+                    .filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.sids.contains(&entry.name))
+                            .unwrap_or(true)
+                    }) {
+                        for line in entry.lines.iter() {
+                            let new_line = position_calculator.convert_line(line, LineType::Sid);
+                            lines.push(new_line);
+                        }
+                    };
+
+                    for entry in sector
+                    .star_entries
+                    .iter()
+                    .filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.stars.contains(&entry.name))
+                            .unwrap_or(true)
+                    }) {
+                        for line in entry.lines.iter() {
+                            let new_line = position_calculator.convert_line(line, LineType::Star);
+                            lines.push(new_line);
+                        }
+                    };
+
+                    for entry in sector
+                    .geo_entries
+                    .iter()
+                    .filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.geo.contains(&entry.name))
+                            .unwrap_or(true)
+                    }) {
+                        for line in entry.lines.iter() {
+                            let new_line = position_calculator.convert_line(line, LineType::Geo);
+                            lines.push(new_line);
+                        }
+                    };
+
                 for fix in sector.fixes.iter().filter(|entry| {
                     asr.as_ref()
                         .map(|asr| asr.fixes.contains(&entry.identifier))
@@ -124,6 +223,16 @@ async fn main() {
                     let fix_y = position_calculator.lat_to_window_y(fix.position.lat as f32);
                     let fix_x = position_calculator.lon_to_window_x(fix.position.lon as f32);
                     fixes.push(Fix { x: fix_x, y: fix_y });
+                }
+
+                for airport in sector.airports.iter().filter(|entry| {
+                    asr.as_ref()
+                        .map(|asr| asr.airports.contains(&entry.identifier))
+                        .unwrap_or(true)
+                }) {
+                    let fix_y = position_calculator.lat_to_window_y(airport.position.lat as f32);
+                    let fix_x = position_calculator.lon_to_window_x(airport.position.lon as f32);
+                    airports.push(Airport { x: fix_x, y: fix_y });
                 }
 
                 for region_group in sector.regions.iter().filter(|entry| {
@@ -190,6 +299,10 @@ async fn main() {
                 }
                 for fix in fixes.iter() {
                     fix.draw();
+                }
+
+                for airport in airports.iter() {
+                    airport.draw();
                 }
 
                 // for fix in sector.fixes.iter() {
@@ -273,11 +386,11 @@ impl PositionCalculator {
         let px_offset_from_origin = deg_offset_from_origin * self.pixels_per_deg_lon();
         px_offset_from_origin
     }
-    pub fn convert_line(&self, line: &ColouredLine) -> Line {
+    pub fn convert_line(&self, line: &ColouredLine, line_type: LineType) -> Line {
         let colour = if let Some(colour) = line.colour() {
             Color::from_rgba(colour.r, colour.g, colour.b, 255)
         } else {
-            Color::from_rgba(38, 94, 97, 255)
+            line_type.default_colour()
         };
         let start_y = self.lat_to_window_y(line.start().lat as f32);
         let start_x = self.lon_to_window_x(line.start().lon as f32);
@@ -370,8 +483,26 @@ impl Fix {
             self.x,
             self.y,
             3,
-            4.0,
+            5.0,
             30.0,
+            1.0,
+            Color::from_rgba(38, 94, 97, 255),
+        );
+    }
+}
+
+pub struct Airport {
+    pub x: f32,
+    pub y: f32,
+}
+impl Airport {
+    pub fn draw(&self) {
+        draw_poly_lines(
+            self.x,
+            self.y,
+            4,
+            5.0,
+            45.0,
             1.0,
             Color::from_rgba(38, 94, 97, 255),
         );
@@ -400,3 +531,30 @@ impl FilledPolygon {
 
 // 0.0, 0.0,    100.0, 0.0,    100.0, 100.0,    0.0, 100.0,   20.0, 20.0,    80.0, 20.0,    80.0, 80.0,    20.0,80.
 // [3,0,4, 5,4,0, 3,4,7, 5,0,1, 2,3,7, 6,5,1, 2,7,6, 6,1,2]
+
+pub enum LineType {
+    Artcc,
+    ArtccLow,
+    ArtccHigh,
+    AirwayLow,
+    AirwayHigh,
+    Sid,
+    Star,
+    Geo,
+    Fix,
+}
+impl LineType {
+    pub fn default_colour(&self) -> Color {
+        match self {
+            LineType::Artcc => DEFAULT_ARTCC_COLOUR,
+            LineType::ArtccLow => DEFAULT_ARTCC_LOW_COLOUR,
+            LineType::ArtccHigh => DEFAULT_ARTCC_HIGH_COLOUR,
+            LineType::AirwayLow => DEFAULT_AIRWAY_LOW_COLOUR,
+            LineType::AirwayHigh => DEFAULT_AIRWAY_HIGH_COLOUR,
+            LineType::Sid => DEFAULT_SID_COLOUR,
+            LineType::Star => DEFAULT_STAR_COLOUR,
+            LineType::Geo => DEFAULT_GEO_COLOUR,
+            LineType::Fix => DEFAULT_FIX_COLOUR,
+        }
+    }
+}
