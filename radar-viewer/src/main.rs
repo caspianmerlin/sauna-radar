@@ -9,6 +9,7 @@ use macroquad::{
     text::draw_text,
     window::{self, clear_background, next_frame},
 };
+use radar::{display::RadarDisplay, WINDOW_HT_N_MI, line::LineType};
 use sct_reader::line::Line as SectorLine;
 use sct_reader::{line::ColouredLine, reader::SctReader, sector::Sector};
 
@@ -60,7 +61,7 @@ async fn main() {
                 sector = Some(new_sector);
                 asr = new_asr;
                 let sector = sector.as_ref().unwrap();
-                position_calculator = Some(PositionCalculator::new(
+                position_calculator = Some(RadarDisplay::new(
                     sector.sector_info.default_centre_pt.lat as f32,
                     sector.sector_info.default_centre_pt.lon as f32,
                     WINDOW_HT_N_MI,
