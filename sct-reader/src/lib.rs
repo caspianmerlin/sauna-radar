@@ -5,12 +5,12 @@ use std::str::FromStr;
 use error::Error;
 pub mod colour;
 pub mod error;
+pub mod line;
 mod partial;
 pub mod position;
 pub mod reader;
 pub mod sector;
 pub mod waypoint;
-pub mod line;
 
 pub type SectorResult<T> = std::result::Result<T, error::Error>;
 

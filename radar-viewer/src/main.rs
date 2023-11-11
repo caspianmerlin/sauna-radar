@@ -1,78 +1,162 @@
-use std::{io::BufReader, fs::File, thread, sync::mpsc};
+use std::{fs::File, io::BufReader, sync::mpsc, thread};
 
 use args::Args;
+use asr::Asr;
 use clap::Parser;
-use macroquad::{window::{clear_background, next_frame, self}, prelude::{Color, WHITE, BLACK, GREEN, BLUE, PINK, Vec2}, text::draw_text, shapes::{draw_line, draw_triangle_lines, draw_poly_lines, draw_triangle}};
-use sct_reader::{reader::SctReader, sector::Sector, line::ColouredLine};
+use macroquad::{
+    prelude::{Color, Vec2, BLACK, BLUE, GREEN, PINK, WHITE},
+    shapes::{draw_line, draw_poly_lines, draw_triangle, draw_triangle_lines},
+    text::draw_text,
+    window::{self, clear_background, next_frame},
+};
 use sct_reader::line::Line as SectorLine;
+use sct_reader::{line::ColouredLine, reader::SctReader, sector::Sector};
 
 mod args;
+mod asr;
 
-const WINDOW_HT_N_MI: f32 = 3.0;
+const WINDOW_HT_N_MI: f32 = 70.0;
 
 #[macroquad::main("Sauna Radar")]
 async fn main() {
     // Get command line args
     let args = Args::parse();
     let mut sector: Option<Sector> = None;
+    let mut asr: Option<Asr> = None;
 
     let mut lines = Vec::new();
     let mut fixes = Vec::new();
     let mut regions = Vec::new();
-    
+
     // Attempt to load sector file
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
-        let mut sector = SctReader::new(BufReader::new(File::open(args.sector_file).unwrap())).try_read().unwrap();
+        let asr = args.asr_file.map(|path| Asr::from_file(path).unwrap());
+        let mut sector = SctReader::new(BufReader::new(File::open(args.sector_file).unwrap()))
+            .try_read()
+            .unwrap();
         // Set centre airport if there is one
         if let Some(centre_airport) = args.centre_airport {
-            if let Some(airport) = sector.airports.iter().find(|x| x.identifier == centre_airport) {
+            if let Some(airport) = sector
+                .airports
+                .iter()
+                .find(|x| x.identifier == centre_airport)
+            {
                 sector.sector_info.default_centre_pt = airport.position
             }
         }
-        tx.send(sector).unwrap();
+        tx.send((sector, asr)).unwrap();
     });
-    
-    window::set_fullscreen(true);
 
+    window::set_fullscreen(true);
 
     let mut position_calculator = None;
 
     loop {
         if sector.is_none() {
-            if let Ok(new_sector) = rx.try_recv() {
+            if let Ok((new_sector, new_asr)) = rx.try_recv() {
                 sector = Some(new_sector);
+                asr = new_asr;
                 let sector = sector.as_ref().unwrap();
-                position_calculator = Some(PositionCalculator::new(sector.sector_info.default_centre_pt.lat as f32, sector.sector_info.default_centre_pt.lon as f32, WINDOW_HT_N_MI, sector.sector_info.n_mi_per_deg_lat, sector.sector_info.n_mi_per_deg_lon));
+                position_calculator = Some(PositionCalculator::new(
+                    sector.sector_info.default_centre_pt.lat as f32,
+                    sector.sector_info.default_centre_pt.lon as f32,
+                    WINDOW_HT_N_MI,
+                    sector.sector_info.n_mi_per_deg_lat,
+                    sector.sector_info.n_mi_per_deg_lon,
+                ));
                 let position_calculator = position_calculator.as_ref().unwrap();
                 // .filter(|line| position_calculator.is_within_screen_bounds(line.start().lat as f32, line.start().lon as f32) || position_calculator.is_within_screen_bounds(line.end().lat as f32, line.end().lon as f32)
-                for artcc_entry in sector.artcc_entries.iter().chain(sector.artcc_low_entries.iter()).chain(sector.artcc_high_entries.iter()).chain(sector.geo_entries.iter()).chain(sector.star_entries.iter()) {
+                for artcc_entry in sector
+                    .artcc_entries
+                    .iter()
+                    .filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.artcc_boundary.contains(&entry.name))
+                            .unwrap_or(true)
+                    })
+                    .chain(sector.artcc_low_entries.iter().filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.artcc_low_boundary.contains(&entry.name))
+                            .unwrap_or(true)
+                    }))
+                    .chain(sector.artcc_high_entries.iter().filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.artcc_high_boundary.contains(&entry.name))
+                            .unwrap_or(true)
+                    }))
+                    .chain(sector.geo_entries.iter().filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.geo.contains(&entry.name))
+                            .unwrap_or(true)
+                    }))
+                    .chain(sector.star_entries.iter().filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.stars.contains(&entry.name))
+                            .unwrap_or(true)
+                    }))
+                    .chain(sector.sid_entries.iter().filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.sids.contains(&entry.name))
+                            .unwrap_or(true)
+                    }))
+                    .chain(sector.low_airways.iter().filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.low_airways.contains(&entry.name))
+                            .unwrap_or(true)
+                    }))
+                    .chain(sector.high_airways.iter().filter(|entry| {
+                        asr.as_ref()
+                            .map(|asr| asr.high_airways.contains(&entry.name))
+                            .unwrap_or(true)
+                    }))
+                {
                     for line in artcc_entry.lines.iter() {
                         let new_line = position_calculator.convert_line(line);
                         lines.push(new_line);
                     }
                 }
-                for fix in sector.fixes.iter() {
+                for fix in sector.fixes.iter().filter(|entry| {
+                    asr.as_ref()
+                        .map(|asr| asr.fixes.contains(&entry.identifier))
+                        .unwrap_or(true)
+                }) {
                     let fix_y = position_calculator.lat_to_window_y(fix.position.lat as f32);
                     let fix_x = position_calculator.lon_to_window_x(fix.position.lon as f32);
                     fixes.push(Fix { x: fix_x, y: fix_y });
                 }
 
-                for region_group in sector.regions.iter() {
+                for region_group in sector.regions.iter().filter(|entry| {
+                    asr.as_ref()
+                        .map(|asr| asr.regions.contains(&entry.name))
+                        .unwrap_or(true)
+                }) {
                     for polygon in region_group.regions.iter() {
-                        let mut vertices = polygon.vertices.iter().map(|position| {
-                            [position.lon as f32, position.lat as f32]
-                        }).flatten().collect::<Vec<_>>();
+                        let mut vertices = polygon
+                            .vertices
+                            .iter()
+                            .map(|position| [position.lon as f32, position.lat as f32])
+                            .flatten()
+                            .collect::<Vec<_>>();
                         let indices = match earcutr::earcut(&vertices, &vec![], 2) {
                             Ok(indices) => indices,
                             Err(_) => continue,
                         };
-                        vertices = vertices.chunks_exact(2).map(|chunk| {
-                            let x = position_calculator.lon_to_window_x(chunk[0]);
-                            let y = position_calculator.lat_to_window_y(chunk[1]);
-                            [x, y]
-                        }).flatten().collect();
-                        let colour = Color::from_rgba(polygon.colour.r, polygon.colour.g, polygon.colour.b, 255);
+                        vertices = vertices
+                            .chunks_exact(2)
+                            .map(|chunk| {
+                                let x = position_calculator.lon_to_window_x(chunk[0]);
+                                let y = position_calculator.lat_to_window_y(chunk[1]);
+                                [x, y]
+                            })
+                            .flatten()
+                            .collect();
+                        let colour = Color::from_rgba(
+                            polygon.colour.r,
+                            polygon.colour.g,
+                            polygon.colour.b,
+                            255,
+                        );
                         let filled_polygon = FilledPolygon {
                             indices,
                             vertices,
@@ -81,7 +165,7 @@ async fn main() {
                         regions.push(filled_polygon);
                     }
                 }
-        }
+            }
         }
         let state = if sector.is_some() {
             State::Loaded
@@ -93,9 +177,8 @@ async fn main() {
             State::Loading => {
                 clear_background(BLUE);
                 draw_text("LOADING...", 5.0, 20.0, 20.0, WHITE);
-            },
-            State:: Loaded => {
-
+            }
+            State::Loaded => {
                 clear_background(BLACK);
 
                 for region in regions.iter() {
@@ -109,33 +192,23 @@ async fn main() {
                     fix.draw();
                 }
 
-                
-                
-
                 // for fix in sector.fixes.iter() {
                 //     let fix_y = position_calculator.lat_to_window_y(fix.position.lat as f32);
                 //     let fix_x = position_calculator.lon_to_window_x(fix.position.lon as f32);
-                //     
+                //
                 // }
-
-
 
                 let fps_text = format!("FPS: {}", macroquad::time::get_fps());
                 draw_text(&fps_text, 5.0, 20.0, 20.0, WHITE);
 
                 macroquad_profiler::profiler(Default::default());
                 // Prototype drawing
-
             }
         }
 
-        
-        
         next_frame().await
     }
 }
-
-
 
 enum State {
     Loading,
@@ -152,7 +225,13 @@ pub struct PositionCalculator {
 }
 
 impl PositionCalculator {
-    pub fn new(window_centre_lat: f32, window_centre_lon: f32, window_ht_n_mi: f32, n_mi_per_deg_lat: f32, n_mi_per_deg_lon: f32) -> PositionCalculator {
+    pub fn new(
+        window_centre_lat: f32,
+        window_centre_lon: f32,
+        window_ht_n_mi: f32,
+        n_mi_per_deg_lat: f32,
+        n_mi_per_deg_lon: f32,
+    ) -> PositionCalculator {
         let mut position_calculator = PositionCalculator {
             window_ht_n_mi,
             n_mi_per_deg_lat,
@@ -211,7 +290,7 @@ impl PositionCalculator {
             start_y,
             end_x,
             end_y,
-            colour
+            colour,
         }
     }
     pub fn window_ht_deg(&self) -> f32 {
@@ -232,13 +311,9 @@ impl PositionCalculator {
 
         let lon_a = f32::min(left_lon, right_lon);
         let lon_b = f32::max(left_lon, right_lon);
-        (lat_a..=lat_b).contains(&lat)
-        &&
-        (lon_a..=lon_b).contains(&lon)
+        (lat_a..=lat_b).contains(&lat) && (lon_a..=lon_b).contains(&lon)
     }
 }
-
-
 
 // Work out window dimensions
 // Decide how many nms = window height (e.g. 70)
@@ -258,8 +333,7 @@ impl PositionCalculator {
 // our_pos = 51.0, 20.0;
 // deg_diff_lat = 51.0 - 50.0 = 1.0;
 // offset_px_from_centre = 1.0 * 60.0 * 8.0 = 480.0;
-// offset_px_from_top = 
-
+// offset_px_from_top =
 
 pub struct Line {
     pub start_x: f32,
@@ -272,9 +346,16 @@ pub struct Line {
 impl Line {
     pub fn draw(&self) {
         if (self.start_x < window::screen_width() && self.start_y < window::screen_height())
-        ||
-        (self.end_x < window::screen_width() && self.end_y < window::screen_height()) {
-            draw_line(self.start_x, self.start_y, self.end_x, self.end_y, 1.0, self.colour);
+            || (self.end_x < window::screen_width() && self.end_y < window::screen_height())
+        {
+            draw_line(
+                self.start_x,
+                self.start_y,
+                self.end_x,
+                self.end_y,
+                1.0,
+                self.colour,
+            );
         }
     }
 }
@@ -285,7 +366,15 @@ pub struct Fix {
 }
 impl Fix {
     pub fn draw(&self) {
-        draw_poly_lines(self.x, self.y, 3, 4.0,30.0, 1.0, Color::from_rgba(38, 94, 97, 255));
+        draw_poly_lines(
+            self.x,
+            self.y,
+            3,
+            4.0,
+            30.0,
+            1.0,
+            Color::from_rgba(38, 94, 97, 255),
+        );
     }
 }
 

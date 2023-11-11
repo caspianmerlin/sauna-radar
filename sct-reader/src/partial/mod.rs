@@ -3,17 +3,20 @@ use std::{collections::HashMap, str::FromStr};
 use crate::{
     colour::Colour,
     error::Error,
+    line::{ColouredLine, LineGroup},
     position::{self, Heading, Position},
-
+    sector::Label,
     waypoint::{self, Airport, Fix, Ndb, RunwayEnd, RunwayModifier, RunwayStrip, Vor},
-    AirspaceClass, SectorResult, line::{LineGroup, ColouredLine}, sector::{Label},
+    AirspaceClass, SectorResult,
 };
 
-use self::{sector_info::PartialSectorInfo, region::{PartialRegion, PartialRegionGroup}};
+use self::{
+    region::{PartialRegion, PartialRegionGroup},
+    sector_info::PartialSectorInfo,
+};
 
-
-pub mod sector_info;
 pub mod region;
+pub mod sector_info;
 
 #[derive(Debug, Default)]
 pub struct PartialSector {
@@ -223,14 +226,22 @@ impl PartialSector {
         Ok(())
     }
 
-    pub fn parse_artcc_or_airway_line(&mut self, value: &str, line_type: ArtccOrAirwayLineType)  -> SectorResult<()>{
+    pub fn parse_artcc_or_airway_line(
+        &mut self,
+        value: &str,
+        line_type: ArtccOrAirwayLineType,
+    ) -> SectorResult<()> {
         let mut sections = value.split_whitespace().collect::<Vec<_>>();
 
         // Get the colour from the last section. If there is one, remove that element.
-        let colour = sections.last().and_then(|section| self.try_fetch_or_decode_colour(section));
-        if colour.is_some() { sections.pop(); };
-//sections: ["AoR", "Milano", "ACC", "N043.34.13.000", "E008.19.18.199", "N043.42.07.000", "E007.50.15.000", "COLOR_AoRcenter1"]
-        
+        let colour = sections
+            .last()
+            .and_then(|section| self.try_fetch_or_decode_colour(section));
+        if colour.is_some() {
+            sections.pop();
+        };
+        //sections: ["AoR", "Milano", "ACC", "N043.34.13.000", "E008.19.18.199", "N043.42.07.000", "E007.50.15.000", "COLOR_AoRcenter1"]
+
         // Determine whether this is a new section (with a name), or a continuation of a previous section.
         let mut first_coord_index = 0;
         let name = if sections.len() > 4 {
@@ -242,9 +253,18 @@ impl PartialSector {
             return Err(Error::InvalidArtccEntry);
         };
 
-        let pos_a = self.try_fetch_or_decode_lat_lon(sections[first_coord_index], sections[first_coord_index + 1]).ok_or(Error::InvalidArtccEntry)?;
-        let pos_b = self.try_fetch_or_decode_lat_lon(sections[first_coord_index + 2], sections[first_coord_index + 3]).ok_or(Error::InvalidArtccEntry)?;
-
+        let pos_a = self
+            .try_fetch_or_decode_lat_lon(
+                sections[first_coord_index],
+                sections[first_coord_index + 1],
+            )
+            .ok_or(Error::InvalidArtccEntry)?;
+        let pos_b = self
+            .try_fetch_or_decode_lat_lon(
+                sections[first_coord_index + 2],
+                sections[first_coord_index + 3],
+            )
+            .ok_or(Error::InvalidArtccEntry)?;
 
         // Determine which storage to use.
         let storage = match line_type {
@@ -268,9 +288,15 @@ impl PartialSector {
             storage.last_mut().ok_or(Error::InvalidArtccEntry)?
         };
 
+        let line = pos_a
+            .validate()
+            .and_then(|pos_a| {
+                pos_b
+                    .validate()
+                    .map(|pos_b| ColouredLine::new(pos_a, pos_b, colour))
+            })
+            .ok();
 
-        let line = pos_a.validate().and_then(|pos_a| pos_b.validate().map(|pos_b| ColouredLine::new(pos_a, pos_b, colour))).ok();
-        
         if let Some(line) = line {
             element.lines.push(line);
         } else {
@@ -279,7 +305,6 @@ impl PartialSector {
             }
         }
         Ok(())
-        
     }
 
     pub fn parse_sid_star_line(
@@ -301,12 +326,12 @@ impl PartialSector {
             .next()
             .and_then(|x| self.try_fetch_or_decode_colour(x));
         let line = self
-            .try_fetch_or_decode_lat_lon(lat_a, lon_a).and_then(|pos| pos.validate().ok())
+            .try_fetch_or_decode_lat_lon(lat_a, lon_a)
+            .and_then(|pos| pos.validate().ok())
             .and_then(|start_pos| {
-                self.try_fetch_or_decode_lat_lon(lat_b, lon_b).and_then(|pos| pos.validate().ok())
-                    .and_then(|end_pos| {
-                        Some(ColouredLine::new(start_pos, end_pos, colour))
-                    })
+                self.try_fetch_or_decode_lat_lon(lat_b, lon_b)
+                    .and_then(|pos| pos.validate().ok())
+                    .and_then(|end_pos| Some(ColouredLine::new(start_pos, end_pos, colour)))
             });
 
         let vec = match sid_star_type {
@@ -320,28 +345,33 @@ impl PartialSector {
                 in_progress_entry.lines.push(line);
             }
         } else {
-            let new_entry = LineGroup::new(name.to_owned(), if let Some(line) = line {
-                vec![line]
-            } else {
-                vec![]
-            });
+            let new_entry = LineGroup::new(
+                name.to_owned(),
+                if let Some(line) = line {
+                    vec![line]
+                } else {
+                    vec![]
+                },
+            );
             vec.push(new_entry);
         }
         Ok(())
     }
 
-
     pub fn parse_geo_line(&mut self, value: &str) -> SectorResult<()> {
-
         // Split into sections
         let mut sections = value.split_whitespace().collect::<Vec<_>>();
 
         // Get the colour, if there is one
-        let colour = sections.last().and_then(|section| self.try_fetch_or_decode_colour(section));
+        let colour = sections
+            .last()
+            .and_then(|section| self.try_fetch_or_decode_colour(section));
 
         // And pop the colour off the end
-        if colour.is_some() { sections.pop(); };
-        
+        if colour.is_some() {
+            sections.pop();
+        };
+
         // Get the name if there is one
         // Also determine the index of the first coord
         let mut first_coord_index = 0;
@@ -355,9 +385,18 @@ impl PartialSector {
         };
 
         // Deserialise the positions, but we're not checking to see if they are valid lat / longs yet - only that they're formatted correctly
-        let pos_a = self.try_fetch_or_decode_lat_lon(sections[first_coord_index], sections[first_coord_index + 1]).ok_or(Error::InvalidGeoEntry)?;
-        let pos_b = self.try_fetch_or_decode_lat_lon(sections[first_coord_index + 2], sections[first_coord_index + 3]).ok_or(Error::InvalidGeoEntry)?;
-
+        let pos_a = self
+            .try_fetch_or_decode_lat_lon(
+                sections[first_coord_index],
+                sections[first_coord_index + 1],
+            )
+            .ok_or(Error::InvalidGeoEntry)?;
+        let pos_b = self
+            .try_fetch_or_decode_lat_lon(
+                sections[first_coord_index + 2],
+                sections[first_coord_index + 3],
+            )
+            .ok_or(Error::InvalidGeoEntry)?;
 
         let storage = &mut self.geo_entries;
         let name_exists = name.is_some();
@@ -378,9 +417,15 @@ impl PartialSector {
             }
         };
 
+        let line = pos_a
+            .validate()
+            .and_then(|pos_a| {
+                pos_b
+                    .validate()
+                    .map(|pos_b| ColouredLine::new(pos_a, pos_b, colour))
+            })
+            .ok();
 
-        let line = pos_a.validate().and_then(|pos_a| pos_b.validate().map(|pos_b| ColouredLine::new(pos_a, pos_b, colour))).ok();
-        
         if let Some(line) = line {
             element.lines.push(line);
         } else {
@@ -391,24 +436,27 @@ impl PartialSector {
         Ok(())
     }
 
-
     pub fn parse_region_line(&mut self, value: &str) -> SectorResult<()> {
         let mut sections = value.split_whitespace().collect::<Vec<_>>();
-        if sections.len() < 2 { return Err(Error::InvalidRegion); }
+        if sections.len() < 2 {
+            return Err(Error::InvalidRegion);
+        }
 
         // See if this is a new region by seeing whether a name is defined
         if sections[0] == "REGIONNAME" {
-
             // We set the current region name
             let name = sections[1..].join(" ");
             self.current_region_name = Some(name.clone());
-
 
             // If it is, we create a new region
             let region = PartialRegion::default();
 
             // We check to see if a region group with the same name exists. If it does, we push this region to it. If not, we create it
-            if let Some(region_group) = self.regions.iter_mut().find(|region_group| region_group.name == name) {
+            if let Some(region_group) = self
+                .regions
+                .iter_mut()
+                .find(|region_group| region_group.name == name)
+            {
                 region_group.regions.push(region);
             } else {
                 let mut region_group = PartialRegionGroup::new(name);
@@ -417,7 +465,6 @@ impl PartialSector {
             }
             return Ok(());
         }
-
 
         // We first check to see if a colour is defined
         // If there is a colour, then we set it
@@ -429,43 +476,56 @@ impl PartialSector {
 
         // If we have got here, it is a non-name line
         // It is not proper for this to occur unless a name is defined
-        let current_region_group = if let Some(current_region_name) = self.current_region_name.as_ref() {
-            let current_region_group = if let Some(region_group) = self.regions.iter_mut().find(|region_group| &region_group.name == current_region_name) {
-                region_group
+        let current_region_group =
+            if let Some(current_region_name) = self.current_region_name.as_ref() {
+                let current_region_group = if let Some(region_group) = self
+                    .regions
+                    .iter_mut()
+                    .find(|region_group| &region_group.name == current_region_name)
+                {
+                    region_group
+                } else {
+                    self.regions.last_mut().unwrap()
+                };
+                current_region_group
             } else {
-                self.regions.last_mut().unwrap()
-            };
-            current_region_group
-        } else {
                 let mut region_group = PartialRegionGroup::new("DEFAULT".to_string());
                 region_group.regions.push(PartialRegion::default());
                 self.current_region_name = Some(String::from("DEFAULT"));
                 self.regions.push(region_group);
                 self.regions.last_mut().unwrap()
-        };
+            };
         // We also retrieve the current region we're working on
-        
-
-        
-
-        
 
         // We get the position. This should be valid. Then we set it
-        let position = Position::try_new_from_es(sections[sections.len() - 2], sections[sections.len() - 1]).and_then(|pos| pos.validate())?;
-        current_region_group.regions.last_mut().unwrap().vertices.push(position);
+        let position =
+            Position::try_new_from_es(sections[sections.len() - 2], sections[sections.len() - 1])
+                .and_then(|pos| pos.validate())?;
+        current_region_group
+            .regions
+            .last_mut()
+            .unwrap()
+            .vertices
+            .push(position);
 
         // If there was a colour, we set it too
         if colour.is_some() {
             current_region_group.regions.last_mut().unwrap().colour = colour;
         }
         Ok(())
-    } 
+    }
 
     pub fn parse_label_line(&mut self, value: &str) -> SectorResult<()> {
         let mut sections = value.split_whitespace().collect::<Vec<_>>();
-        if sections.len() < 4 { return Err(Error::InvalidLabel); }
-        let colour = self.try_fetch_or_decode_colour(sections[sections.len() - 1]).ok_or(Error::InvalidLabel)?;
-        let position = Position::try_new_from_es(sections[sections.len() - 3], sections[sections.len() - 2]).and_then(|position| position.validate())?;
+        if sections.len() < 4 {
+            return Err(Error::InvalidLabel);
+        }
+        let colour = self
+            .try_fetch_or_decode_colour(sections[sections.len() - 1])
+            .ok_or(Error::InvalidLabel)?;
+        let position =
+            Position::try_new_from_es(sections[sections.len() - 3], sections[sections.len() - 2])
+                .and_then(|position| position.validate())?;
         let name = sections[0..sections.len() - 3].join(" ");
         let name = name.trim_matches('"');
         let label = Label {

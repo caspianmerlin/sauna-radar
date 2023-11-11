@@ -8,7 +8,7 @@ use std::{
 use crate::{
     colour::Colour,
     error::Error,
-    partial::{BeaconType, ArtccOrAirwayLineType, PartialSector, SidStarType},
+    partial::{ArtccOrAirwayLineType, BeaconType, PartialSector, SidStarType},
     sector::Sector,
     SectorResult,
 };
@@ -92,12 +92,11 @@ impl<R: BufRead> SctReader<R> {
                     FileSection::Labels => self.partial_sector.parse_label_line(line),
                 };
                 if let Err(e) = result {
-                    self.errors.push((line_number + 1, line.to_owned(), e));;
+                    self.errors.push((line_number + 1, line.to_owned(), e));
                 }
             }
-
         }
-        
+
         let mut sector: Sector = self.partial_sector.try_into()?;
         sector.non_critical_errors = self.errors;
         Ok(sector)
@@ -150,8 +149,9 @@ fn parse_file_section(value: &str) -> SectorResult<FileSection> {
 
 #[test]
 fn test() {
-
-    let file = File::open(r#"C:\Users\chpme\AppData\Roaming\EuroScope\UK\Data\Sector\UK_2023_11.sct"#).unwrap();
+    let file =
+        File::open(r#"C:\Users\chpme\AppData\Roaming\EuroScope\UK\Data\Sector\UK_2023_11.sct"#)
+            .unwrap();
     let reader = BufReader::new(file);
     let sct_reader = SctReader::new(reader);
     let timer = Instant::now();
@@ -167,7 +167,7 @@ fn test() {
                 writeln!(output, "{}", line).unwrap();
                 writeln!(output).unwrap();
             }
-        },
+        }
         Err(error) => println!("{:#?}", error),
     }
 }

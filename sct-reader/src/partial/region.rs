@@ -1,6 +1,7 @@
-use crate::{position::{Position, Valid}, colour::Colour};
-
-
+use crate::{
+    colour::Colour,
+    position::{Position, Valid},
+};
 
 #[derive(Debug)]
 pub struct PartialRegionGroup {
@@ -9,7 +10,10 @@ pub struct PartialRegionGroup {
 }
 impl PartialRegionGroup {
     pub fn new(name: String) -> PartialRegionGroup {
-        PartialRegionGroup { name, regions: vec![] }
+        PartialRegionGroup {
+            name,
+            regions: vec![],
+        }
     }
 }
 
@@ -18,4 +22,3 @@ pub struct PartialRegion {
     pub colour: Option<Colour>,
     pub vertices: Vec<Position<Valid>>,
 }
-

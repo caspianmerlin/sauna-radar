@@ -10,26 +10,29 @@ pub struct Position<Status = MaybeValid> {
 }
 impl Position {
     pub fn new(lat: f64, lon: f64) -> Position {
-        Position { lat, lon, status: PhantomData }
+        Position {
+            lat,
+            lon,
+            status: PhantomData,
+        }
     }
     pub fn try_new_from_es(lat: &str, lon: &str) -> SectorResult<Position> {
-        let lat = coord_from_es(lat)
-            .ok_or(Error::InvalidPosition)?;
-        let lon = coord_from_es(lon)
-            .ok_or(Error::InvalidPosition)?;
-        Ok(Position { lat, lon, status: PhantomData })
+        let lat = coord_from_es(lat).ok_or(Error::InvalidPosition)?;
+        let lon = coord_from_es(lon).ok_or(Error::InvalidPosition)?;
+        Ok(Position {
+            lat,
+            lon,
+            status: PhantomData,
+        })
     }
     pub fn validate(self) -> SectorResult<Position<Valid>> {
-        let valid = (-90.0..=90.0).contains(&self.lat) &&
-        (-180.0..=180.0).contains(&self.lon);
+        let valid = (-90.0..=90.0).contains(&self.lat) && (-180.0..=180.0).contains(&self.lon);
         return if valid {
-            Ok(
-                Position {
-                    lat: self.lat,
-                    lon: self.lon,
-                    status: PhantomData,
-                }
-            )
+            Ok(Position {
+                lat: self.lat,
+                lon: self.lon,
+                status: PhantomData,
+            })
         } else {
             Err(Error::InvalidPosition)
         };
@@ -45,7 +48,6 @@ impl From<Position<Valid>> for Position<MaybeValid> {
         }
     }
 }
-
 
 //N051.07.25.010
 //E002.39.13.334

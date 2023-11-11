@@ -1,7 +1,7 @@
-use crate::{position::{Position, Valid}, colour::Colour};
-
-
-
+use crate::{
+    colour::Colour,
+    position::{Position, Valid},
+};
 
 pub trait Line {
     fn start(&self) -> Position<Valid>;
@@ -33,8 +33,15 @@ pub struct ColouredLine {
     colour: Option<Colour>,
 }
 impl ColouredLine {
-    pub fn new(start: Position<Valid>, end: Position<Valid>, colour: Option<Colour>) -> ColouredLine {
-        ColouredLine { line: SimpleLine::new(start, end), colour }
+    pub fn new(
+        start: Position<Valid>,
+        end: Position<Valid>,
+        colour: Option<Colour>,
+    ) -> ColouredLine {
+        ColouredLine {
+            line: SimpleLine::new(start, end),
+            colour,
+        }
     }
     pub fn colour(&self) -> Option<Colour> {
         self.colour

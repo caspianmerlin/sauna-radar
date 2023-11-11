@@ -1,6 +1,17 @@
 use std::collections::HashMap;
 
-use crate::{colour::Colour, position::{Position, Valid}, waypoint::{Airport, Vor, Ndb, Fix}, partial::{region::{PartialRegionGroup, PartialRegion}, sector_info::PartialSectorInfo, PartialSector}, error::Error, line::{LineGroup, ColouredLine}};
+use crate::{
+    colour::Colour,
+    error::Error,
+    line::{ColouredLine, LineGroup},
+    partial::{
+        region::{PartialRegion, PartialRegionGroup},
+        sector_info::PartialSectorInfo,
+        PartialSector,
+    },
+    position::{Position, Valid},
+    waypoint::{Airport, Fix, Ndb, Vor},
+};
 
 #[derive(Debug)]
 pub struct Sector {
@@ -28,32 +39,32 @@ impl TryFrom<PartialSector> for Sector {
     type Error = Error;
     fn try_from(value: PartialSector) -> Result<Self, Self::Error> {
         let sector_info = SectorInfo::try_from(value.sector_info)?;
-        let regions = value.regions.into_iter().map(|region_group| RegionGroup::try_from(region_group)).collect::<Result<Vec<RegionGroup>, Error>>()?;
-        Ok(
-            Sector {
-                sector_info,
-                colours: value.colours,
-                airports: value.airports,
-                vors: value.vors,
-                ndbs: value.ndbs,
-                fixes: value.fixes,
-                artcc_entries: value.artcc_entries,
-                artcc_low_entries: value.artcc_low_entries,
-                artcc_high_entries: value.artcc_high_entries,
-                low_airways: value.low_airways,
-                high_airways: value.high_airways,
-                sid_entries: value.sid_entries,
-                star_entries: value.star_entries,
-                geo_entries: value.geo_entries,
-                regions,
-                labels: value.labels,
-                non_critical_errors: vec![],
-            }
-        )
+        let regions = value
+            .regions
+            .into_iter()
+            .map(|region_group| RegionGroup::try_from(region_group))
+            .collect::<Result<Vec<RegionGroup>, Error>>()?;
+        Ok(Sector {
+            sector_info,
+            colours: value.colours,
+            airports: value.airports,
+            vors: value.vors,
+            ndbs: value.ndbs,
+            fixes: value.fixes,
+            artcc_entries: value.artcc_entries,
+            artcc_low_entries: value.artcc_low_entries,
+            artcc_high_entries: value.artcc_high_entries,
+            low_airways: value.low_airways,
+            high_airways: value.high_airways,
+            sid_entries: value.sid_entries,
+            star_entries: value.star_entries,
+            geo_entries: value.geo_entries,
+            regions,
+            labels: value.labels,
+            non_critical_errors: vec![],
+        })
     }
 }
-
-
 
 #[derive(Debug)]
 pub struct RegionGroup {
@@ -62,21 +73,29 @@ pub struct RegionGroup {
 }
 impl RegionGroup {
     pub fn new(name: String) -> RegionGroup {
-        RegionGroup { name, regions: vec![] }
+        RegionGroup {
+            name,
+            regions: vec![],
+        }
     }
 }
 
 impl TryFrom<PartialRegionGroup> for RegionGroup {
     type Error = Error;
     fn try_from(value: PartialRegionGroup) -> Result<Self, Self::Error> {
-        let regions = value.regions.into_iter().map(Region::try_from).collect::<Result<Vec<_>, Error>>();
+        let regions = value
+            .regions
+            .into_iter()
+            .map(Region::try_from)
+            .collect::<Result<Vec<_>, Error>>();
         if regions.is_err() {
             println!("NAME: {}", value.name);
         }
         let regions = regions?;
-        Ok(
-            RegionGroup { name: value.name, regions }
-        )
+        Ok(RegionGroup {
+            name: value.name,
+            regions,
+        })
     }
 }
 
@@ -88,9 +107,10 @@ pub struct Region {
 impl TryFrom<PartialRegion> for Region {
     type Error = Error;
     fn try_from(value: PartialRegion) -> Result<Self, Self::Error> {
-        Ok(
-            Region { colour: value.colour.ok_or_else(||Error::InvalidRegion)?, vertices: value.vertices }
-        )
+        Ok(Region {
+            colour: value.colour.ok_or_else(|| Error::InvalidRegion)?,
+            vertices: value.vertices,
+        })
     }
 }
 
@@ -100,7 +120,6 @@ pub struct Label {
     pub position: Position<Valid>,
     pub colour: Colour,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct SectorInfo {
@@ -128,8 +147,15 @@ impl TryFrom<PartialSectorInfo> for SectorInfo {
         let magnetic_variation = value.magnetic_variation.ok_or(Error::SectorInfoError)?;
         let sector_scale = value.sector_scale.ok_or(Error::SectorInfoError)?;
 
-        Ok(
-            SectorInfo { name, default_callsign, default_airport, default_centre_pt, n_mi_per_deg_lat, n_mi_per_deg_lon, magnetic_variation, sector_scale }
-        )
+        Ok(SectorInfo {
+            name,
+            default_callsign,
+            default_airport,
+            default_centre_pt,
+            n_mi_per_deg_lat,
+            n_mi_per_deg_lon,
+            magnetic_variation,
+            sector_scale,
+        })
     }
-} 
+}
