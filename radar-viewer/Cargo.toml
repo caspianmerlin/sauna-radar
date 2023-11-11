@@ -9,3 +9,5 @@ edition = "2021"
 sct-reader = { path = "../sct-reader" }
 macroquad = "0.4.4"
 clap = { version = "4.4.7", features = ["derive"] }
+macroquad-profiler = "0.2.0"
+earcutr = "0.4.3"

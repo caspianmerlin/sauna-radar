@@ -2,13 +2,13 @@ use std::{io::BufReader, fs::File, thread, sync::mpsc};
 
 use args::Args;
 use clap::Parser;
-use macroquad::{window::{clear_background, next_frame, self}, prelude::{Color, WHITE, BLACK, GREEN, BLUE, PINK}, text::draw_text, shapes::{draw_line, draw_triangle_lines, draw_poly_lines}};
+use macroquad::{window::{clear_background, next_frame, self}, prelude::{Color, WHITE, BLACK, GREEN, BLUE, PINK, Vec2}, text::draw_text, shapes::{draw_line, draw_triangle_lines, draw_poly_lines, draw_triangle}};
 use sct_reader::{reader::SctReader, sector::Sector, line::ColouredLine};
 use sct_reader::line::Line as SectorLine;
 
 mod args;
 
-const WINDOW_HT_N_MI: f32 = 120.0;
+const WINDOW_HT_N_MI: f32 = 50.0;
 
 #[macroquad::main("Sauna Radar")]
 async fn main() {
@@ -18,6 +18,7 @@ async fn main() {
 
     let mut lines = Vec::new();
     let mut fixes = Vec::new();
+    let mut regions = Vec::new();
     
     // Attempt to load sector file
     let (tx, rx) = mpsc::channel();
@@ -25,6 +26,7 @@ async fn main() {
         let sector = SctReader::new(BufReader::new(File::open(args.sector_file).unwrap())).try_read().unwrap();
         tx.send(sector).unwrap();
     });
+    
     window::set_fullscreen(true);
 
 
@@ -49,6 +51,30 @@ async fn main() {
                     let fix_x = position_calculator.lon_to_window_x(fix.position.lon as f32);
                     fixes.push(Fix { x: fix_x, y: fix_y });
                 }
+
+                for region_group in sector.regions.iter() {
+                    for polygon in region_group.regions.iter() {
+                        let mut vertices = polygon.vertices.iter().map(|position| {
+                            [position.lon as f32, position.lat as f32]
+                        }).flatten().collect::<Vec<_>>();
+                        let indices = match earcutr::earcut(&vertices, &vec![], 2) {
+                            Ok(indices) => indices,
+                            Err(_) => continue,
+                        };
+                        vertices = vertices.chunks_exact(2).map(|chunk| {
+                            let x = position_calculator.lon_to_window_x(chunk[0]);
+                            let y = position_calculator.lat_to_window_y(chunk[1]);
+                            [x, y]
+                        }).flatten().collect();
+                        let colour = Color::from_rgba(polygon.colour.r, polygon.colour.g, polygon.colour.b, 255);
+                        let filled_polygon = FilledPolygon {
+                            indices,
+                            vertices,
+                            colour,
+                        };
+                        regions.push(filled_polygon);
+                    }
+                }
         }
         }
         let state = if sector.is_some() {
@@ -65,6 +91,11 @@ async fn main() {
             State:: Loaded => {
 
                 clear_background(BLACK);
+
+                for region in regions.iter() {
+                    region.draw();
+                }
+
                 for line in lines.iter() {
                     line.draw();
                 }
@@ -85,6 +116,8 @@ async fn main() {
 
                 let fps_text = format!("FPS: {}", macroquad::time::get_fps());
                 draw_text(&fps_text, 5.0, 20.0, 20.0, WHITE);
+
+                macroquad_profiler::profiler(Default::default());
                 // Prototype drawing
 
             }
@@ -246,6 +279,29 @@ pub struct Fix {
 }
 impl Fix {
     pub fn draw(&self) {
-        draw_poly_lines(self.x, self.y, 3, 4.0,30.0, 0.5, Color::from_rgba(38, 94, 97, 255));
+        draw_poly_lines(self.x, self.y, 3, 4.0,30.0, 1.0, Color::from_rgba(38, 94, 97, 255));
     }
 }
+
+pub struct FilledPolygon {
+    pub indices: Vec<usize>,
+    pub vertices: Vec<f32>,
+    pub colour: Color,
+}
+impl FilledPolygon {
+    pub fn draw(&self) {
+        for triangle in self.indices.chunks_exact(3) {
+            let index_a = triangle[0] * 2;
+            let index_b = triangle[1] * 2;
+            let index_c = triangle[2] * 2;
+            let vertex_a = Vec2::new(self.vertices[index_a], self.vertices[index_a + 1]);
+            let vertex_b = Vec2::new(self.vertices[index_b], self.vertices[index_b + 1]);
+            let vertex_c = Vec2::new(self.vertices[index_c], self.vertices[index_c + 1]);
+
+            draw_triangle(vertex_a, vertex_b, vertex_c, self.colour);
+        }
+    }
+}
+
+// 0.0, 0.0,    100.0, 0.0,    100.0, 100.0,    0.0, 100.0,   20.0, 20.0,    80.0, 20.0,    80.0, 80.0,    20.0,80.
+// [3,0,4, 5,4,0, 3,4,7, 5,0,1, 2,3,7, 6,5,1, 2,7,6, 6,1,2]
