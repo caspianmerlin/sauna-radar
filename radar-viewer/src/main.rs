@@ -14,47 +14,9 @@ use sct_reader::{line::ColouredLine, reader::SctReader, sector::Sector};
 
 mod args;
 mod asr;
+mod radar;
 
-const WINDOW_HT_N_MI: f32 = 70.0;
 
-//      Artcc,
-//     ArtccLow,
-//     ArtccHigh,
-//     AirwayLow,
-//     AirwayHigh,
-//     Sid,
-//     Star,
-//     Geo,
-
-const DEFAULT_ARTCC_COLOUR: Color = Color::new(0.4705882352941176, 0.4196078431372549, 0.2, 1.0);
-const DEFAULT_ARTCC_LOW_COLOUR: Color = Color::new(
-    0.1490196078431373,
-    0.3686274509803922,
-    0.3803921568627451,
-    1.0,
-);
-const DEFAULT_ARTCC_HIGH_COLOUR: Color = Color::new(
-    0.1490196078431373,
-    0.3686274509803922,
-    0.3803921568627451,
-    1.0,
-);
-const DEFAULT_AIRWAY_LOW_COLOUR: Color = Color::new(0.3490196078431373, 0., 0., 1.0);
-const DEFAULT_AIRWAY_HIGH_COLOUR: Color = Color::new(0.3490196078431373, 0., 0., 1.0);
-const DEFAULT_SID_COLOUR: Color = Color::new(
-    0.2705882352941176,
-    0.3058823529411765,
-    0.3450980392156863,
-    1.0,
-);
-const DEFAULT_STAR_COLOUR: Color = Color::new(0.4705882352941176, 0.4196078431372549, 0.2, 1.0);
-const DEFAULT_GEO_COLOUR: Color = Color::new(0., 0.5019607843137255, 0.2509803921568627, 1.0);
-const DEFAULT_FIX_COLOUR: Color = Color::new(
-    0.1490196078431373,
-    0.3686274509803922,
-    0.3803921568627451,
-    1.0,
-);
 
 #[macroquad::main("Sauna Radar")]
 async fn main() {
@@ -311,8 +273,7 @@ async fn main() {
                 //
                 // }
 
-                let fps_text = format!("FPS: {}", macroquad::time::get_fps());
-                draw_text(&fps_text, 5.0, 20.0, 20.0, WHITE);
+
 
                 macroquad_profiler::profiler(Default::default());
                 // Prototype drawing
@@ -328,105 +289,7 @@ enum State {
     Loaded,
 }
 
-#[derive(Debug)]
-pub struct PositionCalculator {
-    window_ht_n_mi: f32,
-    n_mi_per_deg_lat: f32,
-    n_mi_per_deg_lon: f32,
-    origin_lat: f32,
-    origin_lon: f32,
-}
 
-impl PositionCalculator {
-    pub fn new(
-        window_centre_lat: f32,
-        window_centre_lon: f32,
-        window_ht_n_mi: f32,
-        n_mi_per_deg_lat: f32,
-        n_mi_per_deg_lon: f32,
-    ) -> PositionCalculator {
-        let mut position_calculator = PositionCalculator {
-            window_ht_n_mi,
-            n_mi_per_deg_lat,
-            n_mi_per_deg_lon,
-            origin_lat: 0.0,
-            origin_lon: 0.0,
-        };
-        position_calculator.update_centre_lat_lon(window_centre_lat, window_centre_lon);
-        position_calculator
-    }
-    pub fn update_centre_lat_lon(&mut self, window_centre_lat: f32, window_centre_lon: f32) {
-        let half_window_ht_px = window::screen_height() / 2.0;
-        let lat_offset = half_window_ht_px / self.pixels_per_deg_lat();
-        let origin_lat = window_centre_lat + lat_offset;
-
-        let half_window_wi_px = window::screen_width() / 2.0;
-        let lon_offset = half_window_wi_px / self.pixels_per_deg_lon();
-        let origin_lon = window_centre_lon - lon_offset;
-
-        self.origin_lat = origin_lat;
-        self.origin_lon = origin_lon;
-    }
-    pub fn pixels_per_n_mi(&self) -> f32 {
-        window::screen_height() / self.window_ht_n_mi
-    }
-    pub fn pixels_per_deg_lat(&self) -> f32 {
-        self.pixels_per_n_mi() * self.n_mi_per_deg_lat
-    }
-    pub fn pixels_per_deg_lon(&self) -> f32 {
-        self.pixels_per_n_mi() * self.n_mi_per_deg_lon
-    }
-    pub fn lat_to_window_y(&self, lat: f32) -> f32 {
-        let deg_offset_from_origin = self.origin_lat - lat;
-        let px_offset_from_origin = deg_offset_from_origin * self.pixels_per_deg_lat();
-        px_offset_from_origin
-    }
-    pub fn lon_to_window_x(&self, lon: f32) -> f32 {
-        let deg_offset_from_origin = lon - self.origin_lon;
-        let px_offset_from_origin = deg_offset_from_origin * self.pixels_per_deg_lon();
-        px_offset_from_origin
-    }
-    pub fn convert_line(&self, line: &ColouredLine, line_type: LineType) -> Line {
-        let colour = if let Some(colour) = line.colour() {
-            Color::from_rgba(colour.r, colour.g, colour.b, 255)
-        } else {
-            line_type.default_colour()
-        };
-        let start_y = self.lat_to_window_y(line.start().lat as f32);
-        let start_x = self.lon_to_window_x(line.start().lon as f32);
-
-        let end_y = self.lat_to_window_y(line.end().lat as f32);
-        let end_x = self.lon_to_window_x(line.end().lon as f32);
-
-        Line {
-            start_x,
-            start_y,
-            end_x,
-            end_y,
-            colour,
-        }
-    }
-    pub fn window_ht_deg(&self) -> f32 {
-        self.window_ht_n_mi / self.n_mi_per_deg_lat
-    }
-    pub fn window_wi_deg(&self) -> f32 {
-        let window_wi_n_mi = window::screen_width() / self.pixels_per_n_mi();
-        window_wi_n_mi / self.n_mi_per_deg_lon
-    }
-    pub fn is_within_screen_bounds(&self, lat: f32, lon: f32) -> bool {
-        let top_lat = self.origin_lat;
-        let bottom_lat = self.origin_lat - self.window_ht_deg();
-        let left_lon = self.origin_lon;
-        let right_lon = self.origin_lon + self.window_wi_deg();
-
-        let lat_a = f32::min(top_lat, bottom_lat);
-        let lat_b = f32::max(top_lat, bottom_lat);
-
-        let lon_a = f32::min(left_lon, right_lon);
-        let lon_b = f32::max(left_lon, right_lon);
-        (lat_a..=lat_b).contains(&lat) && (lon_a..=lon_b).contains(&lon)
-    }
-}
 
 // Work out window dimensions
 // Decide how many nms = window height (e.g. 70)
@@ -448,30 +311,7 @@ impl PositionCalculator {
 // offset_px_from_centre = 1.0 * 60.0 * 8.0 = 480.0;
 // offset_px_from_top =
 
-pub struct Line {
-    pub start_x: f32,
-    pub start_y: f32,
 
-    pub end_x: f32,
-    pub end_y: f32,
-    pub colour: Color,
-}
-impl Line {
-    pub fn draw(&self) {
-        if (self.start_x < window::screen_width() && self.start_y < window::screen_height())
-            || (self.end_x < window::screen_width() && self.end_y < window::screen_height())
-        {
-            draw_line(
-                self.start_x,
-                self.start_y,
-                self.end_x,
-                self.end_y,
-                1.0,
-                self.colour,
-            );
-        }
-    }
-}
 
 pub struct Fix {
     pub x: f32,
@@ -532,29 +372,4 @@ impl FilledPolygon {
 // 0.0, 0.0,    100.0, 0.0,    100.0, 100.0,    0.0, 100.0,   20.0, 20.0,    80.0, 20.0,    80.0, 80.0,    20.0,80.
 // [3,0,4, 5,4,0, 3,4,7, 5,0,1, 2,3,7, 6,5,1, 2,7,6, 6,1,2]
 
-pub enum LineType {
-    Artcc,
-    ArtccLow,
-    ArtccHigh,
-    AirwayLow,
-    AirwayHigh,
-    Sid,
-    Star,
-    Geo,
-    Fix,
-}
-impl LineType {
-    pub fn default_colour(&self) -> Color {
-        match self {
-            LineType::Artcc => DEFAULT_ARTCC_COLOUR,
-            LineType::ArtccLow => DEFAULT_ARTCC_LOW_COLOUR,
-            LineType::ArtccHigh => DEFAULT_ARTCC_HIGH_COLOUR,
-            LineType::AirwayLow => DEFAULT_AIRWAY_LOW_COLOUR,
-            LineType::AirwayHigh => DEFAULT_AIRWAY_HIGH_COLOUR,
-            LineType::Sid => DEFAULT_SID_COLOUR,
-            LineType::Star => DEFAULT_STAR_COLOUR,
-            LineType::Geo => DEFAULT_GEO_COLOUR,
-            LineType::Fix => DEFAULT_FIX_COLOUR,
-        }
-    }
-}
+
