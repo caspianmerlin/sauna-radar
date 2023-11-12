@@ -14,3 +14,4 @@ macroquad-profiler = "0.2.0"
 earcutr = "0.4.3"
 serde = { version = "1.0.192", features = ["derive"] }
 bincode = "1.3.3"
+once_cell = "1.18.0"

@@ -1,6 +1,8 @@
-use macroquad::{prelude::{Color, WHITE}, shapes::draw_poly_lines, text::draw_text};
+use macroquad::{prelude::{Color, WHITE}, shapes::draw_poly_lines, text::{draw_text, TextParams, load_ttf_font_from_bytes, draw_text_ex}};
 
 use crate::{sector::draw::Draw, AircraftRecord};
+
+use self::display::TAG_FONT;
 
 pub mod display;
 pub mod line;
@@ -63,7 +65,18 @@ impl Draw for AircraftRecord {
             1.0,
             WHITE,
         );
-        draw_text(&self.callsign, self.position.cached_x, self.position.cached_y + 20.0, 20.0, WHITE);
-        draw_text(&self.alt.to_string(), self.position.cached_x, self.position.cached_y + 35.0, 20.0, WHITE);
+        let font = TAG_FONT.get_or_init(|| {
+            load_ttf_font_from_bytes(include_bytes!("../../fonts/RobotoMono-Regular.ttf")).unwrap()
+        });
+        let text_params = TextParams {
+            font: Some(font),
+            font_size: 16,
+            font_scale: 1.0,
+            color: WHITE,
+            ..Default::default()
+        };
+
+        draw_text_ex(&self.callsign, self.position.cached_x, self.position.cached_y + 20.0, text_params.clone());
+        draw_text_ex(&self.alt.to_string(), self.position.cached_x, self.position.cached_y + 35.0, text_params);
     }
 }

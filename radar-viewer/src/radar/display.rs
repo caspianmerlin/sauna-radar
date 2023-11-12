@@ -1,7 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 use ipc::SimAircraftRecord;
-use macroquad::{prelude::{Color, is_key_down, KeyCode, is_key_pressed, is_mouse_button_pressed, MouseButton, mouse_position, is_mouse_button_down, mouse_delta_position, Vec2, WHITE, mouse_wheel}, window, text::draw_text};
+use macroquad::{prelude::{Color, is_key_down, KeyCode, is_key_pressed, is_mouse_button_pressed, MouseButton, mouse_position, is_mouse_button_down, mouse_delta_position, Vec2, WHITE, mouse_wheel}, window, text::{draw_text, Font, load_ttf_font_from_bytes}};
+use once_cell::sync::{Lazy, OnceCell};
 use sct_reader::line::{ColouredLine, Line as SectorLine};
 
 use crate::{sector::{Sector, draw::{Draw, DrawableObjectType}}, AircraftRecord};
@@ -10,6 +11,8 @@ use super::{
     line::{Line, LineType},
     position_calc::PositionCalculator, WINDOW_HT_N_MI,
 };
+
+pub static TAG_FONT: OnceCell<Font> = OnceCell::new(); 
 
 #[derive(Debug)]
 pub struct RadarDisplay {
