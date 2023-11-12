@@ -195,9 +195,9 @@ impl Draw for PolyGroup {
             }
 
             for triangle in poly.indices.chunks_exact(3) {
-                let index_a = triangle[0] * 2;
-                let index_b = triangle[1] * 2;
-                let index_c = triangle[2] * 2;
+                let index_a = triangle[0];
+                let index_b = triangle[1];
+                let index_c = triangle[2];
 
                 let vertex_a = Vec2::new(poly.points[index_a].cached_x, poly.points[index_a].cached_y);
                 let vertex_b = Vec2::new(poly.points[index_b].cached_x, poly.points[index_b].cached_y);

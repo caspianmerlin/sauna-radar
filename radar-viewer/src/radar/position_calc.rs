@@ -1,11 +1,13 @@
-use macroquad::{prelude::Color, window};
+use macroquad::{prelude::{Color, Vec2}, window};
 use sct_reader::line::{ColouredLine, Line as SectorLine};
 
 use super::line::{Line, LineType};
 
 #[derive(Debug)]
 pub struct PositionCalculator {
-    // Position calc stuff
+    // Position calc 
+    window_centre_lat: f32,
+    window_centre_lon: f32,
     window_ht_n_mi: f32,
     n_mi_per_deg_lat: f32,
     n_mi_per_deg_lon: f32,
@@ -30,13 +32,23 @@ impl PositionCalculator {
             origin_lat: 0.0,
             origin_lon: 0.0,
             invalidated: true,
+            window_centre_lat,
+            window_centre_lon
         };
-        position_calculator.update_centre_lat_lon(window_centre_lat, window_centre_lon);
+        position_calculator.update_centre_lat_lon();
         position_calculator
     }
     fn update_zoom(&mut self, window_ht_n_mi: f32) {
-        self.window_ht_n_mi = window_ht_n_mi;
+        self.window_ht_n_mi = window_ht_n_mi.max(1.0);
+        self.update_centre_lat_lon();
         self.invalidated = true;
+    }
+    pub fn update_position_by_mouse_offset(&mut self, offset: Vec2) {
+        let x_offset_deg = offset.x / self.pixels_per_deg_lon();
+        let y_offset_deg = offset.y / self.pixels_per_deg_lat();
+        self.window_centre_lat -= y_offset_deg;
+        self.window_centre_lon += x_offset_deg;
+        self.update_centre_lat_lon();
     }
     pub fn increase_window_ht_by_n_mi(&mut self, n_mi: f32) {
         self.update_zoom(self.window_ht_n_mi + n_mi);
@@ -44,17 +56,18 @@ impl PositionCalculator {
     pub fn decrease_window_ht_by_n_mi(&mut self, n_mi: f32) {
         self.update_zoom(self.window_ht_n_mi - n_mi);
     }
-    pub fn update_centre_lat_lon(&mut self, window_centre_lat: f32, window_centre_lon: f32) {
+    pub fn update_centre_lat_lon(&mut self) {
         let half_window_ht_px = window::screen_height() / 2.0;
         let lat_offset = half_window_ht_px / self.pixels_per_deg_lat();
-        let origin_lat = window_centre_lat + lat_offset;
+        let origin_lat = self.window_centre_lat + lat_offset;
 
         let half_window_wi_px = window::screen_width() / 2.0;
         let lon_offset = half_window_wi_px / self.pixels_per_deg_lon();
-        let origin_lon = window_centre_lon - lon_offset;
+        let origin_lon = self.window_centre_lon - lon_offset;
 
         self.origin_lat = origin_lat;
         self.origin_lon = origin_lon;
+        self.invalidated = true;
     }
     pub fn pixels_per_n_mi(&self) -> f32 {
         window::screen_height() / self.window_ht_n_mi

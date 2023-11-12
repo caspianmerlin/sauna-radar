@@ -63,7 +63,7 @@ impl DrawableObjectType {
             Self::Vor => DEFAULT_FIX_COLOUR,
             Self::Ndb => DEFAULT_FIX_COLOUR,
             Self::Artcc => DEFAULT_ARTCC_COLOUR,
-            Self::ArtccLow => DEFAULT_AIRWAY_LOW_COLOUR,
+            Self::ArtccLow => DEFAULT_ARTCC_LOW_COLOUR,
             Self::ArtccHigh => DEFAULT_ARTCC_HIGH_COLOUR,
             Self::LowAirway => DEFAULT_AIRWAY_LOW_COLOUR,
             Self::HighAirway => DEFAULT_AIRWAY_HIGH_COLOUR,

@@ -53,7 +53,8 @@ impl Sector {
         load_asr_settings_to_mapped_vec(&asr.artcc_boundary, &mut self.artcc_entries);
         load_asr_settings_to_mapped_vec(&asr.artcc_low_boundary, &mut self.artcc_low_entries);
         load_asr_settings_to_mapped_vec(&asr.artcc_high_boundary, &mut self.artcc_high_entries);
-        load_asr_settings_to_mapped_vec(&asr.low_airways, &mut self.high_airways);
+        load_asr_settings_to_mapped_vec(&asr.low_airways, &mut self.low_airways);
+        load_asr_settings_to_mapped_vec(&asr.high_airways, &mut self.high_airways);
         load_asr_settings_to_mapped_vec(&asr.sids, &mut self.sid_entries);
         load_asr_settings_to_mapped_vec(&asr.stars, &mut self.star_entries);
         load_asr_settings_to_mapped_vec(&asr.geo, &mut self.geo_entries);
@@ -127,6 +128,9 @@ impl Draw for Sector {
         self.regions.for_each(|region| {
             region.draw(position_calculator, DrawableObjectType::Default);
         });
+        self.geo_entries.for_each(|entry| {
+            entry.draw(position_calculator, DrawableObjectType::Geo);
+        });
         self.artcc_entries.for_each(|entry| {
             entry.draw(position_calculator, DrawableObjectType::Artcc);
         });
@@ -148,9 +152,7 @@ impl Draw for Sector {
         self.star_entries.for_each(|entry| {
             entry.draw(position_calculator, DrawableObjectType::Star);
         });
-        self.geo_entries.for_each(|entry| {
-            entry.draw(position_calculator, DrawableObjectType::Geo);
-        });
+        
         self.fixes.for_each(|entry| {
             entry.draw(position_calculator, DrawableObjectType::Fix);
         });
