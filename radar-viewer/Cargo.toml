@@ -12,4 +12,5 @@ macroquad = "0.4.4"
 clap = { version = "4.4.7", features = ["derive"] }
 macroquad-profiler = "0.2.0"
 earcutr = "0.4.3"
+serde = { version = "1.0.192", features = ["derive"] }
 bincode = "1.3.3"

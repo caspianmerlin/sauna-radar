@@ -1,4 +1,6 @@
-use macroquad::prelude::Color;
+use macroquad::{prelude::{Color, WHITE}, shapes::draw_poly_lines, text::draw_text};
+
+use crate::{sector::draw::Draw, AircraftRecord};
 
 pub mod display;
 pub mod line;
@@ -45,3 +47,23 @@ pub const DEFAULT_FIX_COLOUR: Color = Color::new(
     0.3803921568627451,
     1.0,
 );
+
+
+
+
+impl Draw for AircraftRecord {
+    fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, drawable_object_type: crate::sector::draw::DrawableObjectType) {
+        self.position.cache_screen_coords(position_calculator);
+        draw_poly_lines(
+            self.position.cached_x,
+            self.position.cached_y,
+            4,
+            5.0,
+            45.0,
+            1.0,
+            WHITE,
+        );
+        draw_text(&self.callsign, self.position.cached_x, self.position.cached_y + 20.0, 20.0, WHITE);
+        draw_text(&self.alt.to_string(), self.position.cached_x, self.position.cached_y + 35.0, 20.0, WHITE);
+    }
+}

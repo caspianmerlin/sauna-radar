@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{fs::File, io::BufReader, sync::mpsc, thread};
+use std::{fs::File, io::BufReader, sync::{mpsc, Mutex, Arc}, thread, net::TcpStream};
 
 use args::Args;
 use asr::Asr;
@@ -14,7 +14,7 @@ use macroquad::{
 use radar::{line::LineType, position_calc::PositionCalculator, WINDOW_HT_N_MI, display::RadarDisplay};
 
 use sct_reader::reader::SctReader;
-use sector::Sector;
+use sector::{Sector, items::Position};
 
 mod args;
 mod asr;
@@ -63,7 +63,8 @@ async fn main() {
                 if let Some(new_asr) = new_asr {
                     new_sector.load_filters_from_asr(&new_asr);
                 }
-                let new_radar_display = RadarDisplay::new(new_sector, args.screen_height_n_mi);
+                let arc = start_ipc_worker();
+                let new_radar_display = RadarDisplay::new(new_sector, args.screen_height_n_mi, start_ipc_worker());
                 radar_display = Some(new_radar_display);
             }
         }
@@ -73,3 +74,49 @@ async fn main() {
     }
 }
 
+
+
+
+
+
+
+fn start_ipc_worker() -> Arc<Mutex<Vec<AircraftRecord>>> {
+    let arc = Arc::new(Mutex::new(vec![]));
+    let arc_cloned = Arc::clone(&arc);
+
+
+    thread::spawn(move || {
+        let mut arc = arc_cloned;
+        let tcp_stream = TcpStream::connect("127.0.0.1:14416").unwrap();
+
+        loop {
+            let aircraft_data: ipc::MessageType = bincode::deserialize_from(&tcp_stream).unwrap();
+            if let ipc::MessageType::AircraftData(aircraft_data) = aircraft_data {
+                println!("{:?}", aircraft_data);
+                let aircraft_data = aircraft_data.into_iter().map(AircraftRecord::from).collect::<Vec<_>>();
+                let mut mutex_guard = arc.lock().unwrap();
+                *mutex_guard = aircraft_data;
+            }
+            
+        }
+        
+    });
+
+
+
+    return arc;
+}
+
+
+
+#[derive(Debug)]
+pub struct AircraftRecord {
+    pub callsign: String,
+    pub position: Position,
+    pub alt: i32,
+}
+impl From<ipc::SimAircraftRecord> for AircraftRecord {
+    fn from(value: ipc::SimAircraftRecord) -> Self {
+        AircraftRecord { callsign: value.callsign, position: Position { lat: value.lat, lon: value.lon, cached_x: 0.0, cached_y: 0.0 }, alt: value.alt }
+    }
+}
