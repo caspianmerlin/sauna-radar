@@ -1,8 +1,7 @@
-use macroquad::{window, prelude::Color};
+use macroquad::{prelude::Color, window};
 use sct_reader::line::{ColouredLine, Line as SectorLine};
 
 use super::line::{Line, LineType};
-
 
 #[derive(Debug)]
 pub struct PositionCalculator {
@@ -13,6 +12,7 @@ pub struct PositionCalculator {
     origin_lat: f32,
     origin_lon: f32,
 
+    pub invalidated: bool,
 }
 
 impl PositionCalculator {
@@ -29,9 +29,20 @@ impl PositionCalculator {
             n_mi_per_deg_lon,
             origin_lat: 0.0,
             origin_lon: 0.0,
+            invalidated: true,
         };
         position_calculator.update_centre_lat_lon(window_centre_lat, window_centre_lon);
         position_calculator
+    }
+    fn update_zoom(&mut self, window_ht_n_mi: f32) {
+        self.window_ht_n_mi = window_ht_n_mi;
+        self.invalidated = true;
+    }
+    pub fn increase_window_ht_by_n_mi(&mut self, n_mi: f32) {
+        self.update_zoom(self.window_ht_n_mi + n_mi);
+    }
+    pub fn decrease_window_ht_by_n_mi(&mut self, n_mi: f32) {
+        self.update_zoom(self.window_ht_n_mi - n_mi);
     }
     pub fn update_centre_lat_lon(&mut self, window_centre_lat: f32, window_centre_lon: f32) {
         let half_window_ht_px = window::screen_height() / 2.0;
@@ -64,26 +75,7 @@ impl PositionCalculator {
         let px_offset_from_origin = deg_offset_from_origin * self.pixels_per_deg_lon();
         px_offset_from_origin
     }
-    pub fn convert_line(&self, line: &ColouredLine, line_type: LineType) -> Line {
-        let colour = if let Some(colour) = line.colour() {
-            Color::from_rgba(colour.r, colour.g, colour.b, 255)
-        } else {
-            line_type.default_colour()
-        };
-        let start_y = self.lat_to_window_y(line.start().lat as f32);
-        let start_x = self.lon_to_window_x(line.start().lon as f32);
 
-        let end_y = self.lat_to_window_y(line.end().lat as f32);
-        let end_x = self.lon_to_window_x(line.end().lon as f32);
-
-        Line {
-            start_x,
-            start_y,
-            end_x,
-            end_y,
-            colour,
-        }
-    }
     pub fn window_ht_deg(&self) -> f32 {
         self.window_ht_n_mi / self.n_mi_per_deg_lat
     }

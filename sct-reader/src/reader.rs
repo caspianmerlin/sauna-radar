@@ -25,7 +25,7 @@ impl<R: BufRead> SctReader<R> {
         Self {
             source,
             current_section: FileSection::ColourDefinitions,
-            partial_sector: PartialSector::default(),
+            partial_sector: PartialSector::new(),
             errors: vec![],
         }
     }

@@ -1,9 +1,8 @@
 use macroquad::prelude::Color;
 
-pub mod line;
 pub mod display;
+pub mod line;
 pub mod position_calc;
-
 
 pub const WINDOW_HT_N_MI: f32 = 70.0;
 
@@ -16,7 +15,8 @@ pub const WINDOW_HT_N_MI: f32 = 70.0;
 //     Star,
 //     Geo,
 
-pub const DEFAULT_ARTCC_COLOUR: Color = Color::new(0.4705882352941176, 0.4196078431372549, 0.2, 1.0);
+pub const DEFAULT_ARTCC_COLOUR: Color =
+    Color::new(0.4705882352941176, 0.4196078431372549, 0.2, 1.0);
 pub const DEFAULT_ARTCC_LOW_COLOUR: Color = Color::new(
     0.1490196078431373,
     0.3686274509803922,

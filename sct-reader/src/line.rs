@@ -10,8 +10,8 @@ pub trait Line {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SimpleLine {
-    start: Position<Valid>,
-    end: Position<Valid>,
+    pub start: Position<Valid>,
+    pub end: Position<Valid>,
 }
 impl SimpleLine {
     pub fn new(start: Position<Valid>, end: Position<Valid>) -> SimpleLine {
@@ -29,8 +29,8 @@ impl Line for SimpleLine {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ColouredLine {
-    line: SimpleLine,
-    colour: Option<Colour>,
+    pub line: SimpleLine,
+    pub colour: Option<Colour>,
 }
 impl ColouredLine {
     pub fn new(

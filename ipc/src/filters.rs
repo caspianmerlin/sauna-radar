@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone)]
 pub struct FilterSettings {
     pub airports: Vec<WaypointEntry>,
@@ -15,8 +14,6 @@ pub struct FilterSettings {
     pub geo: Vec<LineGroupEntry>,
     pub regions: Vec<LineGroupEntry>,
 }
-
-
 
 #[derive(Debug, Clone)]
 pub struct WaypointEntry {
@@ -39,7 +36,6 @@ pub struct BeaconEntry {
     pub show_identifier: bool,
     pub show_frequency: bool,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct LineGroupEntry {
