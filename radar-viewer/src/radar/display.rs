@@ -1,11 +1,11 @@
 use std::sync::{Arc, Mutex};
 
 use ipc::SimAircraftRecord;
-use macroquad::{prelude::{Color, is_key_down, KeyCode, is_key_pressed, is_mouse_button_pressed, MouseButton, mouse_position, is_mouse_button_down, mouse_delta_position, Vec2, WHITE, mouse_wheel}, window, text::{draw_text, Font, load_ttf_font_from_bytes}};
+use macroquad::{prelude::{Color, is_key_down, KeyCode, is_key_pressed, is_mouse_button_pressed, MouseButton, mouse_position, is_mouse_button_down, mouse_delta_position, Vec2, WHITE, mouse_wheel}, window, text::{draw_text, Font, load_ttf_font_from_bytes}, ui::Ui};
 use once_cell::sync::{Lazy, OnceCell};
 use sct_reader::line::{ColouredLine, Line as SectorLine};
 
-use crate::{sector::{Sector, draw::{Draw, DrawableObjectType}}, AircraftRecord};
+use crate::{sector::{Sector, draw::{Draw, DrawableObjectType}, ui::SectorUi}, AircraftRecord};
 
 use super::{
     line::{Line, LineType},
@@ -20,6 +20,7 @@ pub struct RadarDisplay {
     position_calculator: PositionCalculator,
     mouse_pos_last_frame: Vec2,
     aircraft_data: Arc<Mutex<Vec<AircraftRecord>>>,
+    sector_ui: SectorUi,
 }
 
 impl RadarDisplay {
@@ -33,7 +34,7 @@ impl RadarDisplay {
             sector.n_mi_per_deg_lat,
             sector.n_mi_per_deg_lon,
         );
-        RadarDisplay { sector, position_calculator, mouse_pos_last_frame: Vec2::default(), aircraft_data }
+        RadarDisplay { sector, position_calculator, mouse_pos_last_frame: Vec2::default(), aircraft_data, sector_ui: SectorUi::new() }
     }
     pub fn update(&mut self) {
 
@@ -47,6 +48,9 @@ impl RadarDisplay {
         }
         if is_key_pressed(KeyCode::Down) {
             self.position_calculator.increase_window_ht_by_n_mi(10.0);
+        }
+        if is_key_pressed(KeyCode::F3) {
+            self.sector_ui.toggle_visibility();
         }
         if is_mouse_button_down(MouseButton::Right) {
             
@@ -64,6 +68,7 @@ impl RadarDisplay {
 
 
 
+
     pub fn draw(&mut self) {
         self.sector.draw(&mut self.position_calculator, DrawableObjectType::Default);
         let mut mutex_guard = self.aircraft_data.lock().unwrap();
@@ -71,5 +76,6 @@ impl RadarDisplay {
             aircraft.draw(&mut self.position_calculator, DrawableObjectType::Default);
         }
         self.position_calculator.invalidated = false;
+        self.sector_ui.show_ui(&mut self.sector);
     }
 }

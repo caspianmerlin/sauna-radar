@@ -9,7 +9,7 @@ use macroquad::{
     prelude::{Color, Vec2, BLACK, BLUE, WHITE},
     shapes::{draw_poly_lines, draw_triangle},
     text::draw_text,
-    window::{self, clear_background, next_frame},
+    window::{self, clear_background, next_frame}, ui::{root_ui, hash, widgets::{Window, Group, Button, InputText, ComboBox}, Layout},
 };
 use radar::{line::LineType, position_calc::PositionCalculator, WINDOW_HT_N_MI, display::RadarDisplay};
 
@@ -20,6 +20,7 @@ mod args;
 mod asr;
 mod radar;
 mod sector;
+
 
 #[macroquad::main("Sauna Radar")]
 async fn main() {
@@ -47,10 +48,11 @@ async fn main() {
     });
 
     window::set_fullscreen(true);
-
-
+    let mut search = String::new();
+    let mut ticked = false;
+    let mut selected = 0;
     loop {
-
+        search = search.to_uppercase();
         if let Some(radar_display) = &mut radar_display {
 
             radar_display.update();
@@ -68,6 +70,10 @@ async fn main() {
                 radar_display = Some(new_radar_display);
             }
         }
+
+        
+
+
 
         macroquad_profiler::profiler(Default::default());
         next_frame().await

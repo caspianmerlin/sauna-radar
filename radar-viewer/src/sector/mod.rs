@@ -2,12 +2,13 @@ use crate::asr::Asr;
 
 use self::{items::*, mapped_vec::MappedVec, draw::{Draw, DrawableObjectType}};
 use std::collections::HashMap;
-use macroquad::prelude::Color;
+use macroquad::{prelude::Color, ui::{Ui, hash}};
 use sct_reader::waypoint::Waypoint;
 
 pub mod draw;
 pub mod items;
 pub mod mapped_vec;
+pub mod ui;
 
 #[derive(Debug)]
 pub struct Sector {
@@ -59,6 +60,16 @@ impl Sector {
         load_asr_settings_to_mapped_vec(&asr.stars, &mut self.star_entries);
         load_asr_settings_to_mapped_vec(&asr.geo, &mut self.geo_entries);
         load_asr_settings_to_mapped_vec(&asr.regions, &mut self.regions);
+    }
+
+
+    pub fn ui_window(&mut self, ui: &mut Ui, search: &str) {
+        self.fixes.for_each(|fix| {
+            if fix.identifier.starts_with(search) {
+                ui.checkbox(hash!(&fix.identifier), &fix.identifier, &mut fix.show_symbol);
+            }
+            
+        });
     }
 }
 
