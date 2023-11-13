@@ -56,6 +56,18 @@ impl PositionCalculator {
     pub fn decrease_window_ht_by_n_mi(&mut self, n_mi: f32) {
         self.update_zoom(self.window_ht_n_mi - n_mi);
     }
+    pub fn zoom_in(&mut self) {
+        let new_height =  self.window_ht_n_mi - (self.window_ht_n_mi * 0.15);
+        if (1.0..=700.0).contains(&new_height) {
+            self.update_zoom(new_height);
+        }
+    }
+    pub fn zoom_out(&mut self) {
+        let new_height =  self.window_ht_n_mi + (self.window_ht_n_mi * 0.15);
+        if (1.0..=700.0).contains(&new_height) {
+            self.update_zoom(new_height);
+        }
+    }
     pub fn update_centre_lat_lon(&mut self) {
         let half_window_ht_px = window::screen_height() / 2.0;
         let lat_offset = half_window_ht_px / self.pixels_per_deg_lat();
