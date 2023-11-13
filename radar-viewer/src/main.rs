@@ -48,11 +48,19 @@ async fn main() {
     });
 
     window::set_fullscreen(true);
-    let mut search = String::new();
-    let mut ticked = false;
-    let mut selected = 0;
+    let mut initialisation_stage = InitialisationStage::Uninitialised;
+
+
     loop {
-        search = search.to_uppercase();
+        match initialisation_stage {
+            InitialisationStage::Uninitialised => initialisation_stage = InitialisationStage::Initialised,
+            InitialisationStage::Initialised => {
+                window::set_fullscreen(false);
+                initialisation_stage = InitialisationStage::Running;
+            },
+            InitialisationStage::Running => {},
+        }
+
         if let Some(radar_display) = &mut radar_display {
 
             radar_display.update();
@@ -66,6 +74,7 @@ async fn main() {
                     new_sector.load_filters_from_asr(&new_asr);
                 }
                 let arc = start_ipc_worker();
+                println!("This should only show once");
                 let new_radar_display = RadarDisplay::new(new_sector, args.screen_height_n_mi, start_ipc_worker());
                 radar_display = Some(new_radar_display);
             }
@@ -76,6 +85,7 @@ async fn main() {
 
 
         macroquad_profiler::profiler(Default::default());
+        
         next_frame().await
     }
 }
@@ -97,11 +107,15 @@ fn start_ipc_worker() -> Arc<Mutex<Vec<AircraftRecord>>> {
 
         loop {
             let aircraft_data: ipc::MessageType = bincode::deserialize_from(&tcp_stream).unwrap();
-            if let ipc::MessageType::AircraftData(aircraft_data) = aircraft_data {
-                //println!("{:?}", aircraft_data);
-                let aircraft_data = aircraft_data.into_iter().map(AircraftRecord::from).collect::<Vec<_>>();
-                let mut mutex_guard = arc.lock().unwrap();
-                *mutex_guard = aircraft_data;
+            match aircraft_data {
+                ipc::MessageType::AircraftData(aircraft_data) => {
+                    //println!("{:?}", aircraft_data);
+                    let aircraft_data = aircraft_data.into_iter().map(AircraftRecord::from).collect::<Vec<_>>();
+                    
+                    let mut mutex_guard = arc.lock().unwrap();
+                    *mutex_guard = aircraft_data;
+                }
+                _ => (),
             }
             
         }
@@ -125,4 +139,10 @@ impl From<ipc::SimAircraftRecord> for AircraftRecord {
     fn from(value: ipc::SimAircraftRecord) -> Self {
         AircraftRecord { callsign: value.callsign, position: Position { lat: value.lat, lon: value.lon, cached_x: 0.0, cached_y: 0.0 }, alt: value.alt }
     }
+}
+
+enum InitialisationStage {
+    Uninitialised,
+    Initialised,
+    Running,
 }

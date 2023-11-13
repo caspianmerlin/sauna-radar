@@ -1,4 +1,4 @@
-use macroquad::{prelude::{Color, Vec2}, window};
+use macroquad::{prelude::{Color, Vec2}, window, input::{mouse_position_local, mouse_position}};
 use sct_reader::line::{ColouredLine, Line as SectorLine};
 
 use super::line::{Line, LineType};
@@ -67,6 +67,57 @@ impl PositionCalculator {
         if (1.0..=700.0).contains(&new_height) {
             self.update_zoom(new_height);
         }
+    }
+    pub fn set_centre_to_mouse_pos(&mut self) {
+        let mouse_pos = mouse_position();
+        let screen_centre_x = window::screen_width() / 2.0;
+        let screen_centre_y = window::screen_height() / 2.0;
+        
+        let x_offset = mouse_pos.0 - screen_centre_x;
+        let y_offset = mouse_pos.1 - screen_centre_y;
+
+        let offset = Vec2::new(x_offset, y_offset);
+        self.update_position_by_mouse_offset(offset);
+    }
+    pub fn screen_coords_to_lat_lon(&self, screen_coords: (f32, f32)) -> (f32, f32) {
+        let deg_from_origin_lon = screen_coords.0 / self.pixels_per_deg_lon();
+        let deg_from_origin_lat = screen_coords.1 / self.pixels_per_deg_lat();
+        (self.origin_lat - deg_from_origin_lat, self.origin_lon + deg_from_origin_lon)
+    }
+
+
+    pub fn zoom_in_mouse(&mut self, mouse_position: (f32, f32)) {
+        // Work out difference in pixels between mouse_pos and screen centre.
+        let screen_centre_px_x = window::screen_width() / 2.0;
+        let screen_centre_px_y = window::screen_height() / 2.0;
+        let mouse_pos_offset_x = mouse_position.0 - screen_centre_px_x;
+        let mouse_pos_offset_y = mouse_position.1 - screen_centre_px_y;
+        let pos_under_mouse = self.screen_coords_to_lat_lon(mouse_position);
+
+        self.zoom_in();
+
+        let lat_offset = mouse_pos_offset_y / self.pixels_per_deg_lat();
+        let lon_offset = mouse_pos_offset_x / self.pixels_per_deg_lon();
+
+        self.window_centre_lat = pos_under_mouse.0 + lat_offset;
+        self.window_centre_lon = pos_under_mouse.1 - lon_offset;
+        self.update_centre_lat_lon();
+    }
+    pub fn zoom_out_mouse(&mut self, mouse_position: (f32, f32)) {
+        let screen_centre_px_x = window::screen_width() / 2.0;
+        let screen_centre_px_y = window::screen_height() / 2.0;
+        let mouse_pos_offset_x = mouse_position.0 - screen_centre_px_x;
+        let mouse_pos_offset_y = mouse_position.1 - screen_centre_px_y;
+        let pos_under_mouse = self.screen_coords_to_lat_lon(mouse_position);
+
+        self.zoom_out();
+
+        let lat_offset = mouse_pos_offset_y / self.pixels_per_deg_lat();
+        let lon_offset = mouse_pos_offset_x / self.pixels_per_deg_lon();
+
+        self.window_centre_lat = pos_under_mouse.0 + lat_offset;
+        self.window_centre_lon = pos_under_mouse.1 - lon_offset;
+        self.update_centre_lat_lon();
     }
     pub fn update_centre_lat_lon(&mut self) {
         let half_window_ht_px = window::screen_height() / 2.0;

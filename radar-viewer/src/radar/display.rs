@@ -22,6 +22,7 @@ pub struct RadarDisplay {
     aircraft_data: Arc<Mutex<Vec<AircraftRecord>>>,
     sector_ui: SectorUi,
     show_help: bool,
+    
     fullscreen: bool,
 }
 
@@ -36,7 +37,7 @@ impl RadarDisplay {
             sector.n_mi_per_deg_lat,
             sector.n_mi_per_deg_lon,
         );
-        RadarDisplay { sector, position_calculator, mouse_pos_last_frame: Vec2::default(), aircraft_data, sector_ui: SectorUi::new(), show_help: true, fullscreen: true }
+        RadarDisplay { sector, position_calculator, mouse_pos_last_frame: Vec2::default(), aircraft_data, sector_ui: SectorUi::new(), show_help: true, fullscreen: false }
     }
     pub fn update(&mut self) {
 
@@ -46,6 +47,7 @@ impl RadarDisplay {
             let mouse_pos = mouse_position();
             Vec2::new(mouse_pos.0, mouse_pos.1)
         };
+
 
         if is_key_pressed(KeyCode::F1) {
             self.show_help = !self.show_help;
@@ -62,13 +64,16 @@ impl RadarDisplay {
             let diff = self.mouse_pos_last_frame - current_position;
             self.position_calculator.update_position_by_mouse_offset(diff);
         }
+        if is_mouse_button_pressed(MouseButton::Left) {
+            println!("Mouse pos: {:?}", mouse_position());
+        }
 
         if !ui_has_mouse {
             let mouse_wheel_delta = mouse_wheel().1;
             if mouse_wheel_delta < 0.0 {
-            self.position_calculator.zoom_out();
+            self.position_calculator.zoom_out_mouse(mouse_position());
         } else if mouse_wheel_delta > 0.0 {
-            self.position_calculator.zoom_in();
+            self.position_calculator.zoom_in_mouse(mouse_position());
         }
         }
         
