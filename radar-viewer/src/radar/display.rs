@@ -86,6 +86,7 @@ impl RadarDisplay {
         for aircraft in mutex_guard.iter_mut() {
             aircraft.draw(&mut self.position_calculator, DrawableObjectType::Default);
         }
+        drop(mutex_guard);
         
         if self.show_help {
             draw_text("F1 - Show / hide help    F3 - Filters    F11 - Toggle fullscreen", 10., 20.0, 20., WHITE);

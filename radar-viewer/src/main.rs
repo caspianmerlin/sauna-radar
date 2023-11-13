@@ -98,7 +98,7 @@ fn start_ipc_worker() -> Arc<Mutex<Vec<AircraftRecord>>> {
         loop {
             let aircraft_data: ipc::MessageType = bincode::deserialize_from(&tcp_stream).unwrap();
             if let ipc::MessageType::AircraftData(aircraft_data) = aircraft_data {
-                println!("{:?}", aircraft_data);
+                //println!("{:?}", aircraft_data);
                 let aircraft_data = aircraft_data.into_iter().map(AircraftRecord::from).collect::<Vec<_>>();
                 let mut mutex_guard = arc.lock().unwrap();
                 *mutex_guard = aircraft_data;
