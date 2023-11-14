@@ -53,30 +53,3 @@ pub const DEFAULT_FIX_COLOUR: Color = Color::new(
 
 
 
-impl Draw for AircraftRecord {
-    fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, drawable_object_type: crate::sector::draw::DrawableObjectType) {
-        self.position.cache_screen_coords(position_calculator);
-        draw_poly_lines(
-            self.position.cached_x,
-            self.position.cached_y,
-            4,
-            5.0,
-            45.0,
-            1.0,
-            WHITE,
-        );
-        let font = TAG_FONT.get_or_init(|| {
-            load_ttf_font_from_bytes(include_bytes!("../../fonts/RobotoMono-Regular.ttf")).unwrap()
-        });
-        let text_params = TextParams {
-            font: Some(font),
-            font_size: 16,
-            font_scale: 1.0,
-            color: WHITE,
-            ..Default::default()
-        };
-
-        draw_text_ex(&self.callsign, self.position.cached_x, self.position.cached_y + 20.0, text_params.clone());
-        draw_text_ex(&self.alt.to_string(), self.position.cached_x, self.position.cached_y + 35.0, text_params);
-    }
-}

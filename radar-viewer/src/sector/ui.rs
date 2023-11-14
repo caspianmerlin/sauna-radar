@@ -38,7 +38,7 @@ impl SectorUi {
         Window::new(hash!(), Vec2::new(200.0, 200.0), Vec2::new(300.0, 600.0)).label("Filters").titlebar(true).ui(&mut root_ui(), |ui| {
             Group::new(hash!(), Vec2::new(290., 570.)).layout(Layout::Horizontal).ui(ui, |ui| {
                 ComboBox::new(hash!(), CATEGORIES).label("H").ratio(1.0).ui(ui, &mut self.selected_section);
-                InputText::new(hash!()).ratio(1.0).ui(ui, &mut self.search_terms[self.selected_section]);
+                InputText::new(hash!()).size(Vec2 { x: 150., y: 20. }).label("Type to search").ratio(1.0).ui(ui, &mut self.search_terms[self.selected_section]);
                 Checkbox::new(hash!()).label("Only show visible").ui(ui, &mut self.show_only_visible);
 
                 match self.selected_section {

@@ -13,7 +13,6 @@ pub struct PositionCalculator {
     n_mi_per_deg_lon: f32,
     origin_lat: f32,
     origin_lon: f32,
-
     pub invalidated: bool,
 }
 
@@ -33,7 +32,7 @@ impl PositionCalculator {
             origin_lon: 0.0,
             invalidated: true,
             window_centre_lat,
-            window_centre_lon
+            window_centre_lon,
         };
         position_calculator.update_centre_lat_lon();
         position_calculator
