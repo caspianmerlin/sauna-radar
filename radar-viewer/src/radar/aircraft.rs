@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use ipc::{SimAircraftFmsLine, SimAircraftFmsGraphic};
 use macroquad::{shapes::{draw_poly_lines, draw_line}, color::{WHITE, Color}, text::{load_ttf_font_from_bytes, TextParams, draw_text_ex}};
 
@@ -68,33 +70,37 @@ impl FmsArc {
         match self.state {
             FmsArcState::Initialised { .. } => return,
             FmsArcState::Uninitialised { centre, radius_m, start_bearing_true, end_bearing_true, clockwise } => {
+
+                println!("Start bearing: {}", start_bearing_true);
+                println!("End bearing: {}", end_bearing_true);
+                println!("Clockwise: {}", clockwise);
                 let (mut start_bearing, mut end_bearing) = if clockwise { (start_bearing_true, end_bearing_true) } else { (end_bearing_true, start_bearing_true) };
                 if end_bearing < start_bearing {
                     end_bearing += 360.0;
                 }
+                println!("Start bearing adj: {}", start_bearing);
+                println!("End bearing adj: {}", end_bearing);
 
-                let num_steps = (end_bearing - start_bearing).floor() as usize / 5;
-                let step = (end_bearing - start_bearing) / (num_steps as f32).floor();
 
-                start_bearing = start_bearing.to_radians();
-                end_bearing = end_bearing.to_radians();
+
+
 
                 let x_rad = position_calc.n_mi_to_deg_lon(m_to_n_mi(radius_m));
                 let y_rad = position_calc.n_mi_to_deg_lat(m_to_n_mi(radius_m));
 
                 let mut points = Vec::new();
 
-                for _ in 0..num_steps {
+                while start_bearing < end_bearing {
                     let angle = start_bearing.to_radians();
-                    let x = centre.lon + (x_rad * f32::cos(angle));
-                    let y = centre.lat + (y_rad * f32::sin(angle));
+                    let x = centre.lon + (x_rad * f32::sin(angle));
+                    let y = centre.lat + (y_rad * f32::cos(angle));
                     points.push(Position::new(y, x));
-                    start_bearing += step;
+                    start_bearing += 5.0;
                 }
                 let angle = end_bearing.to_radians();
-                let x = centre.lon + (x_rad * f32::cos(angle));
-                let y = centre.lat + (y_rad * f32::sin(angle));
-                //points.push(Position::new(y, x));
+                let x = centre.lon + (x_rad * f32::sin(angle));
+                let y = centre.lat + (y_rad * f32::cos(angle));
+                points.push(Position::new(y, x));
 
                 let mut lines = Vec::with_capacity(points.len() + 1);
                 for i in 1..points.len() {
@@ -116,12 +122,13 @@ pub enum FmsArcState {
 
 impl Draw for FmsArc {
     fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, default_colour: Color) {
-        match &mut self.state {
-            FmsArcState::Uninitialised { .. } => self.calculate_arc_points(position_calculator),
-            FmsArcState::Initialised { lines } => {
-                for line in lines.iter_mut() {
-                    line.draw(position_calculator, default_colour);
-                }
+        
+        if let FmsArcState::Uninitialised { .. } = self.state {
+            self.calculate_arc_points(position_calculator);
+        }
+        if let FmsArcState::Initialised { lines } = &mut self.state {
+            for line in lines.iter_mut() {
+                line.draw(position_calculator, default_colour);
             }
         }
     }
@@ -157,10 +164,10 @@ impl Draw for FmsGraphic {
 
 impl Draw for FmsLine {
     fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, default_colour: Color) {
-        if position_calculator.invalidated {
+
             self.start.cache_screen_coords(position_calculator);
             self.end.cache_screen_coords(position_calculator);
-        }
+
         draw_line(self.start.cached_x, self.start.cached_y, self.end.cached_x, self.end.cached_y, 1.0, default_colour);
     }
 }
