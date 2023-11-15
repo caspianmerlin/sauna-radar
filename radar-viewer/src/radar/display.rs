@@ -5,7 +5,7 @@ use macroquad::{prelude::{Color, is_key_down, KeyCode, is_key_pressed, is_mouse_
 use once_cell::sync::{Lazy, OnceCell};
 use sct_reader::line::{ColouredLine, Line as SectorLine};
 
-use crate::{sector::{Sector, draw::{Draw, DrawableObjectType}, ui::SectorUi}, IpcMessage, ReceiverDropGuard, radar_colour_to_mq_colour};
+use crate::{sector::{Sector, draw::{Draw, DrawableObjectType}, ui::SectorUi}, IpcMessage, radar_colour_to_mq_colour};
 
 use super::{
     line::{Line, LineType},

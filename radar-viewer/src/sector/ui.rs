@@ -2,15 +2,15 @@ use std::default;
 
 use macroquad::{ui::{widgets::{Window, ComboBox, Group, InputText, Checkbox}, hash, root_ui, Layout, Ui}, prelude::Vec2};
 
-use super::{Sector, mapped_vec::MappedVec, items::{NamedPoint, LineGroup, PolyGroup}};
+use super::{Sector, mapped_vec::MappedVec, items::{NamedPoint, LineGroup, PolyGroup, LabelGroup}};
 
-static CATEGORIES: &[&str] = &["Airports", "VORs", "NDBs", "Fixes", "ARTCC Boundaries", "ARTCC Boundaries (low)", "ARTCC Boundaries (high)", "Low Airways", "High Airways", "SIDs", "STARs", "Geography", "Regions"];
+static CATEGORIES: &[&str] = &["Airports", "VORs", "NDBs", "Fixes", "ARTCC Boundaries", "ARTCC Boundaries (low)", "ARTCC Boundaries (high)", "Low Airways", "High Airways", "SIDs", "STARs", "Geography", "Regions", "Free Text"];
 
 #[derive(Debug)]
 pub struct SectorUi {
     visible: bool,
     selected_section: usize,
-    search_terms: [String; 13],
+    search_terms: [String; 14],
     show_only_visible: bool,
 }
 impl SectorUi {
@@ -55,6 +55,7 @@ impl SectorUi {
                     10 => line_group_ui(ui, &mut sector.star_entries, &self.search_terms[self.selected_section], self.show_only_visible),
                     11 => line_group_ui(ui, &mut sector.geo_entries, &self.search_terms[self.selected_section], self.show_only_visible),
                     12 => region_ui(ui, &mut sector.regions, &self.search_terms[self.selected_section], self.show_only_visible),
+                    13 => label_group_ui(ui, &mut sector.labels, &self.search_terms[self.selected_section], self.show_only_visible),
                     _ => unreachable!(),
                 }
             });
@@ -107,4 +108,21 @@ fn region_ui(ui: &mut Ui, regions: &mut MappedVec<PolyGroup>, search_box: &str, 
             ui.checkbox(hash!(&region.identifier), &region.identifier, &mut region.show);
         }
     });
+}
+
+fn label_group_ui(ui: &mut Ui, label_groups: &mut MappedVec<LabelGroup>, search_box: &str, show_only_visible: bool) {
+    for label_group in label_groups.entries() {
+        let mut labels = label_group.labels.into_iter();
+        let show = if show_only_visible {
+            labels.any(|l| l.show)
+        } else { labels.any(|l| l.text.starts_with(search_box)) };
+        if show {
+            ui.tree_node(hash!(&label_group.name), &label_group.name, |ui| {
+                for label in label_group.labels.entries() {
+                    if (show_only_visible && !label.show) || !label.text.starts_with(search_box) { continue; }
+                    ui.checkbox(hash!(&label.text), &label.text, &mut label.show);
+                }
+            });
+        }
+    };
 }

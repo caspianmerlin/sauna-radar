@@ -30,7 +30,7 @@ pub struct Sector {
     pub star_entries: Vec<LineGroup<ColouredLine>>,
     pub geo_entries: Vec<LineGroup<ColouredLine>>,
     pub regions: Vec<RegionGroup>,
-    pub labels: Vec<Label>,
+    pub labels: Vec<LabelGroup>,
 
     pub non_critical_errors: Vec<(usize, String, Error)>,
 }
@@ -112,6 +112,12 @@ impl TryFrom<PartialRegion> for Region {
             vertices: value.vertices,
         })
     }
+}
+
+#[derive(Debug)]
+pub struct LabelGroup {
+    pub name: String,
+    pub labels: Vec<Label>,
 }
 
 #[derive(Debug)]

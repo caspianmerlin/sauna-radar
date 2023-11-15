@@ -5,7 +5,7 @@ use crate::{
     error::Error,
     line::{ColouredLine, LineGroup},
     position::{self, Heading, Position},
-    sector::Label,
+    sector::{Label, LabelGroup},
     waypoint::{self, Airport, Fix, Ndb, RunwayEnd, RunwayModifier, RunwayStrip, Vor},
     AirspaceClass, SectorResult,
 };
@@ -35,7 +35,7 @@ pub struct PartialSector {
     pub star_entries: Vec<LineGroup<ColouredLine>>,
     pub geo_entries: Vec<LineGroup<ColouredLine>>,
     pub regions: Vec<PartialRegionGroup>,
-    pub labels: Vec<Label>,
+    pub labels: Vec<LabelGroup>,
 
     current_region_name: String,
 }
@@ -44,6 +44,7 @@ impl PartialSector {
     pub fn new() -> PartialSector {
         PartialSector {
             current_region_name: String::from("noname"),
+            labels: vec![LabelGroup { name: String::from("SCT2"), labels: vec![] }],
             ..Default::default()
         }
     }
@@ -517,7 +518,7 @@ impl PartialSector {
             position,
             colour,
         };
-        self.labels.push(label);
+        self.labels.last_mut().unwrap().labels.push(label);
         Ok(())
     }
 }

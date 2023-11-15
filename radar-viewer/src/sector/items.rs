@@ -3,7 +3,7 @@ use sct_reader::waypoint::Waypoint;
 
 use crate::radar::position_calc::PositionCalculator;
 
-use super::draw::{Draw, DrawableObjectType};
+use super::{draw::{Draw, DrawableObjectType}, mapped_vec::MappedVec};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Position {
@@ -252,6 +252,12 @@ impl From<sct_reader::sector::Region> for ColouredPoly {
 }
 
 #[derive(Debug)]
+pub struct LabelGroup {
+    pub name: String,
+    pub labels: MappedVec<Label>,
+}
+
+#[derive(Debug)]
 pub struct Label {
     pub text: String,
     pub position: Position,
@@ -272,7 +278,7 @@ impl From<sct_reader::sector::Label> for Label {
             text: value.name,
             position: value.position.into(),
             colour: mq_colour_from_sf_colour(value.colour),
-            show: true,
+            show: false,
         }
     }
 }
@@ -289,7 +295,11 @@ impl Draw for Label {
     fn draw(&mut self, position_calculator: &PositionCalculator, default_colour: Color) {
         if self.show {
             self.position.cache_screen_coords(position_calculator);
-            draw_text(&self.text, self.position.cached_x, self.position.cached_y, 15.0, self.colour);
+            let text_dims = measure_text(&self.text, None, 15, 1.0);
+            let text_x = self.position.cached_x - (text_dims.width / 2.0);
+            let text_y = self.position.cached_y + (text_dims.height / 2.0);
+
+            draw_text(&self.text, text_x, text_y, 15.0, self.colour);
         }
     }
 }
@@ -300,3 +310,4 @@ pub trait SetVisibility {
     fn set_visibility(&mut self, visible: bool);
     fn visible(&self) -> bool;
 }
+

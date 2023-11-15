@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{fs::File, io::BufReader, sync::{mpsc::{self, Receiver, TryRecvError}, Mutex, Arc}, thread, net::TcpStream};
+use std::{fs::File, io::BufReader, sync::{mpsc::{self, Receiver, TryRecvError}, Mutex, Arc, atomic::{AtomicBool, Ordering}}, thread, net::TcpStream, path::PathBuf};
 
 use args::Args;
 use asr::Asr;
@@ -78,6 +78,24 @@ impl RadarDisplayManager {
 
 #[macroquad::main("Sauna Radar")]
 async fn main() {
+
+    // Attempt to obtain unique access to the lockfile.
+    // If we can't, another instance of this program is running.
+    let lock_file_path = get_config_dir().unwrap().join(".radarlockfile");
+    let mut lock_file = fd_lock::RwLock::new(File::create(lock_file_path).expect("Unable to create lock file"));
+    let lock_file_guard = match lock_file.try_write() {
+        Ok(lock_file_guard) => lock_file_guard,
+        Err(_) => {
+            eprintln!("\nAnother instance of this application is already running. Closing...\n");
+            std::process::exit(1);
+        }
+    };
+
+
+
+
+
+
     // Get command line args
     let args = Args::parse();
     let mut tcp_stream_killer = TcpStreamKiller::default();
@@ -85,7 +103,7 @@ async fn main() {
     let mut radar_display_manager = RadarDisplayManager::default();
     let mut show_help = true;
     let mut full_screen = false;
-    let aircraft_receiver = start_ipc_worker();
+    let (aircraft_receiver, atomic_bool_drop_guard) = start_ipc_worker();
     // Attempt to load sector file
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
@@ -134,6 +152,9 @@ async fn main() {
                 tcp_stream_killer.store(tcp_stream);
             }
             Ok(IpcMessage::AircraftData(aircraft_data)) => aircraft = aircraft_data,
+            Ok(IpcMessage::ConnectionLost) => {
+                aircraft.clear();
+            }
             Err(e) => {
                 if let TryRecvError::Disconnected = e { println!("Try recv error") };
             }
@@ -188,41 +209,62 @@ async fn main() {
 
 
 #[derive(Debug)]
-pub struct ReceiverDropGuard(Receiver<IpcMessage>);
-impl Drop for ReceiverDropGuard {
+pub struct AtomicBoolDropGuard(Arc<AtomicBool>);
+impl Drop for AtomicBoolDropGuard {
     fn drop(&mut self) {
-        println!("Rx dropped");
+        self.0.store(true, Ordering::Relaxed);
     }
 }
 
 
-fn start_ipc_worker() -> Receiver<IpcMessage> {
+fn start_ipc_worker() -> (Receiver<IpcMessage>, AtomicBoolDropGuard) {
     let (tx, rx) = std::sync::mpsc::channel();
-
+    let should_end = Arc::new(AtomicBool::new(false));
+    let should_end_2 = Arc::clone(&should_end);
 
     thread::spawn(move || {
+        let should_end = should_end_2;
         let tx = tx;
-        let tcp_stream = TcpStream::connect("127.0.0.1:14416").unwrap();
-        tx.send(IpcMessage::TcpStream(tcp_stream.try_clone().unwrap()));
-        loop {
-            let aircraft_data = match bincode::deserialize_from(&tcp_stream) {
-                Ok(ipc::MessageType::AircraftData(aircraft_data)) => aircraft_data,
-                Err(_) => break,
-            };
-            let aircraft_data = aircraft_data.into_iter().map(AircraftRecord::from).collect::<Vec<_>>();
-            if let Err(e) = tx.send(IpcMessage::AircraftData(aircraft_data)) {
-                println!("{}", e);
+
+        'outer: loop {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            match TcpStream::connect("127.0.0.1:14416") {
+                Err(_) => {
+                    if should_end.load(Ordering::Relaxed) {
+                        break 'outer;
+                    }
+                },
+                Ok(tcp_stream) => {
+                    tx.send(IpcMessage::TcpStream(tcp_stream.try_clone().unwrap()));
+                    loop {
+                        let aircraft_data = match bincode::deserialize_from(&tcp_stream) {
+                            Ok(ipc::MessageType::AircraftData(aircraft_data)) => aircraft_data,
+                            Err(_) => {
+                                tx.send(IpcMessage::ConnectionLost).ok();
+                                break;
+                            },
+                        };
+                        let aircraft_data = aircraft_data.into_iter().map(AircraftRecord::from).collect::<Vec<_>>();
+                        if let Err(e) = tx.send(IpcMessage::AircraftData(aircraft_data)) {
+                            println!("{}", e);
+                        }
+                    }
+                }
+
+                
             }
+            
         }
-        println!("Thread exiting");
+
     });
 
-    return rx;
+    return (rx, AtomicBoolDropGuard(should_end));
 }
 
 pub enum IpcMessage {
     TcpStream(TcpStream),
     AircraftData(Vec<AircraftRecord>),
+    ConnectionLost,
 }
 
 
@@ -236,4 +278,15 @@ enum InitialisationStage {
 
 pub fn radar_colour_to_mq_colour(radar_colour: &RadarColour) -> Color {
     Color::from_rgba(radar_colour.r, radar_colour.g, radar_colour.b, 255)
+}
+
+
+
+
+pub fn get_config_dir() -> Option<PathBuf> {
+    let mut dir = dirs::config_dir();
+    if let Some(dir) = &mut dir {
+        dir.push("sauna-ui-rs");
+    }
+    dir
 }

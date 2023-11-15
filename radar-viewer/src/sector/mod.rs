@@ -35,7 +35,7 @@ pub struct Sector {
 
     pub regions: MappedVec<PolyGroup>,
 
-    pub labels: MappedVec<Label>,
+    pub labels: MappedVec<LabelGroup>,
 }
 
 impl Sector {
@@ -72,15 +72,17 @@ impl Sector {
         load_string_settings_to_mapped_vec(&filters.geography, &mut self.geo_entries);
         load_string_settings_to_mapped_vec(&filters.regions, &mut self.regions);
 
-        // for free_text_section_filter in filters.free_text.iter() {
-        //     if let Some(free_text_entry) = self.labels.get_by_name_mut(&free_text_section_filter.name) {
-        //         for free_text_entry_filter in free_text_section_filter.entries.iter() {
-                    
-        //         }
-        //     };
-            
-            
-        // }
+        for filter_label_group in filters.free_text.iter() {
+            if let Some(label_group) = self.labels.get_by_name_mut(&filter_label_group.name) {
+                for filter_label in filter_label_group.entries.iter() {
+                    for label in label_group.labels.entries() {
+                        if filter_label == &label.text {
+                            label.set_visibility(true);
+                        }
+                    }
+                }
+            };
+        }
         
     }
     
@@ -135,7 +137,10 @@ impl Sector {
             entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.airports_symbol), radar_colour_to_mq_colour(&colours.airports_name), DrawableObjectType::Airport);
         });
         self.labels.for_each(|entry| {
-            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.free_text));
+            entry.labels.for_each(|entry| {
+                entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.free_text));
+            }); 
+            
         });
     }
 }
@@ -191,13 +196,18 @@ impl From<sct_reader::sector::Sector> for Sector {
             regions.insert(key, poly_group);
         });
 
-        let mut labels = MappedVec::with_capacity(value.labels.len());
-        value.labels.into_iter().for_each(|label| {
-            let label = Label::from(label);
-            let key = label.text.clone();
-            labels.insert(key, label);
+        let mut label_groups = MappedVec::with_capacity(value.labels.len());
+        value.labels.into_iter().for_each(|sct_label_group| {
+            let mut label_group = LabelGroup  { name: sct_label_group.name.clone(), labels: MappedVec::with_capacity(sct_label_group.labels.len()) };
+            for sector_label in sct_label_group.labels {
+                let label = Label::from(sector_label);
+                let label = Label::from(label);
+                let key = label.text.clone();
+                label_group.labels.insert(key, label);
+            }
+            label_groups.insert(sct_label_group.name, label_group);
         });
-        Sector { name, default_centre_pt, n_mi_per_deg_lat, n_mi_per_deg_lon, magnetic_variation, airports, vors, ndbs, fixes, artcc_entries, artcc_low_entries, artcc_high_entries, low_airways, high_airways, sid_entries, star_entries, geo_entries, regions, labels }
+        Sector { name, default_centre_pt, n_mi_per_deg_lat, n_mi_per_deg_lon, magnetic_variation, airports, vors, ndbs, fixes, artcc_entries, artcc_low_entries, artcc_high_entries, low_airways, high_airways, sid_entries, star_entries, geo_entries, regions, labels: label_groups }
     }
 
     

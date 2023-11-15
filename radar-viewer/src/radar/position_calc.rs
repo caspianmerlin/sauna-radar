@@ -171,4 +171,10 @@ impl PositionCalculator {
         let lon_b = f32::max(left_lon, right_lon);
         (lat_a..=lat_b).contains(&lat) && (lon_a..=lon_b).contains(&lon)
     }
+    pub fn n_mi_to_deg_lat(&self, n_mi: f32) -> f32 {
+        n_mi / self.n_mi_per_deg_lat
+    }
+    pub fn n_mi_to_deg_lon(&self, n_mi: f32) -> f32 {
+        n_mi / self.n_mi_per_deg_lon
+    }
 }

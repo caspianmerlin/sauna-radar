@@ -17,6 +17,9 @@ impl<T> MappedVec<T> {
             map: HashMap::new(),
         }
     }
+    pub fn entries(&mut self) -> &mut Vec<T> {
+        &mut self.vec
+    }
     pub fn with_capacity(capacity: usize) -> Self {
         MappedVec {
             vec: Vec::with_capacity(capacity),
@@ -40,6 +43,15 @@ impl<T> MappedVec<T> {
             f(item);
         }
     }
+
+    pub fn any<F>(&self, f: F) -> bool where F: Fn(&T) -> bool {
+        for item in self.vec.iter() {
+            if f(item) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 impl<'a, T> IntoIterator for &'a MappedVec<T> {
@@ -58,6 +70,7 @@ pub struct MappedVecIterator<'a, T> {
     index: usize,
 }
 
+
 impl<'a, T> Iterator for MappedVecIterator<'a, T> {
     type Item = &'a T;
     fn next(&mut self) -> Option<Self::Item> {
@@ -68,3 +81,4 @@ impl<'a, T> Iterator for MappedVecIterator<'a, T> {
         value
     }
 }
+
