@@ -1,15 +1,15 @@
 use std::{sync::{Arc, Mutex, mpsc::{Receiver, TryRecvError}}, net::TcpStream};
 
-use ipc::SimAircraftRecord;
+use ipc::{SimAircraftRecord, profile::colours::RadarColours};
 use macroquad::{prelude::{Color, is_key_down, KeyCode, is_key_pressed, is_mouse_button_pressed, MouseButton, mouse_position, is_mouse_button_down, mouse_delta_position, Vec2, WHITE, mouse_wheel}, window, text::{draw_text, Font, load_ttf_font_from_bytes}, ui::{Ui, root_ui}};
 use once_cell::sync::{Lazy, OnceCell};
 use sct_reader::line::{ColouredLine, Line as SectorLine};
 
-use crate::{sector::{Sector, draw::{Draw, DrawableObjectType}, ui::SectorUi}, AircraftRecord, IpcMessage, ReceiverDropGuard};
+use crate::{sector::{Sector, draw::{Draw, DrawableObjectType}, ui::SectorUi}, IpcMessage, ReceiverDropGuard, radar_colour_to_mq_colour};
 
 use super::{
     line::{Line, LineType},
-    position_calc::PositionCalculator, WINDOW_HT_N_MI,
+    position_calc::PositionCalculator, WINDOW_HT_N_MI, aircraft::AircraftRecord,
 };
 
 pub static TAG_FONT: OnceCell<Font> = OnceCell::new(); 
@@ -19,43 +19,26 @@ pub struct RadarDisplay {
     sector: Sector,
     position_calculator: PositionCalculator,
     mouse_pos_last_frame: Vec2,
-    aircraft_records: Vec<AircraftRecord>,
-    aircraft_data_receiver: ReceiverDropGuard,
     sector_ui: SectorUi,
-    show_help: bool,
     show_fms_lines: bool,
-    
-
-    tcp_stream: Option<TcpStream>,
-    fullscreen: bool,
+    colours: RadarColours,
 }
 
 impl RadarDisplay {
-    pub fn new(sector: Sector, screen_ht_n_mi: Option<f32>, aircraft_data_receiver: ReceiverDropGuard) -> RadarDisplay {
-        println!("D");
+    pub fn new(sector: Sector, screen_ht_n_mi: f32, colours: RadarColours) -> RadarDisplay {
         let position_calculator = PositionCalculator::new(
             sector.default_centre_pt.lat,
             sector.default_centre_pt.lon,
-            screen_ht_n_mi
-                .map(|x| x as f32)
-                .unwrap_or(WINDOW_HT_N_MI),
+            screen_ht_n_mi,
             sector.n_mi_per_deg_lat,
             sector.n_mi_per_deg_lon,
         );
-        RadarDisplay { sector, position_calculator, mouse_pos_last_frame: Vec2::default(), aircraft_records: vec![], aircraft_data_receiver, sector_ui: SectorUi::new(), show_help: true, fullscreen: false, tcp_stream: None, show_fms_lines: false, }
+        RadarDisplay { sector, position_calculator, mouse_pos_last_frame: Vec2::default(), sector_ui: SectorUi::new(), show_fms_lines: false, colours }
     }
-    pub fn update(&mut self) {
-        match self.aircraft_data_receiver.0.try_recv()  {
-            Ok(IpcMessage::TcpStream(tcp_stream)) => {
-                println!("Successfully received");
-                self.tcp_stream = Some(tcp_stream);
-            }
-            Ok(IpcMessage::AircraftData(aircraft_data)) => self.aircraft_records = aircraft_data,
-            Err(e) => {
-                if let TryRecvError::Disconnected = e { println!("Try recv error") };
-            }
-        }
-            
+    pub fn background_colour(&self) -> Color {
+        radar_colour_to_mq_colour(&self.colours.background)
+    }
+    pub fn update(&mut self, aircraft: &mut Vec<AircraftRecord>) {
         
         let ui_has_mouse = root_ui().is_mouse_over(Vec2::new(mouse_position().0, mouse_position().1));
 
@@ -65,9 +48,7 @@ impl RadarDisplay {
         };
 
 
-        if is_key_pressed(KeyCode::F1) {
-            self.show_help = !self.show_help;
-        }
+        
 
         if is_key_pressed(KeyCode::F2) {
             self.show_fms_lines = !self.show_fms_lines;
@@ -75,12 +56,8 @@ impl RadarDisplay {
         if is_key_pressed(KeyCode::F3) {
             self.sector_ui.toggle_visibility();
         }
-        if is_key_pressed(KeyCode::F11) {
-            self.fullscreen = !self.fullscreen;
-            window::set_fullscreen(self.fullscreen);
-        }
+        
         if is_mouse_button_down(MouseButton::Right) {
-            
             let diff = self.mouse_pos_last_frame - current_position;
             self.position_calculator.update_position_by_mouse_offset(diff);
         }
@@ -104,27 +81,18 @@ impl RadarDisplay {
 
 
 
-    pub fn draw(&mut self) {
+    pub fn draw(&mut self, aircraft: &mut Vec<AircraftRecord>) {
         self.position_calculator.invalidated = true;
-        self.sector.draw(&mut self.position_calculator, DrawableObjectType::Default);
+        self.sector.draw(&mut self.position_calculator, &self.colours);
 
-        for aircraft in self.aircraft_records.iter_mut() {
+        for aircraft in aircraft.iter_mut() {
             aircraft.draw(&mut self.position_calculator, self.show_fms_lines);
         }
 
         
-        if self.show_help {
-            draw_text("F1 - Show / hide help    F2 - Toggle FMS lines    F3 - Filters    F11 - Toggle fullscreen", 10., 20.0, 20., WHITE);
-        }
+        
         
         self.sector_ui.show_ui(&mut self.sector);
     }
 }
 
-impl Drop for RadarDisplay {
-    fn drop(&mut self) {
-        if let Some(tcp_stream) = &self.tcp_stream {
-            tcp_stream.shutdown(std::net::Shutdown::Both).ok();
-        }
-    }
-}

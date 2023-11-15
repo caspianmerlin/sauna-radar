@@ -1,17 +1,18 @@
 #![allow(unused)]
 
-use std::{fs::File, io::BufReader, sync::{mpsc::{self, Receiver}, Mutex, Arc}, thread, net::TcpStream};
+use std::{fs::File, io::BufReader, sync::{mpsc::{self, Receiver, TryRecvError}, Mutex, Arc}, thread, net::TcpStream};
 
 use args::Args;
 use asr::Asr;
 use clap::Parser;
+use ipc::profile::{RadarProfile, colours::{RadarColour, RadarColours}, LatLon};
 use macroquad::{
     prelude::{Color, Vec2, BLACK, BLUE, WHITE},
     shapes::{draw_poly_lines, draw_triangle, draw_line},
     text::{draw_text, load_ttf_font_from_bytes, TextParams, draw_text_ex},
-    window::{self, clear_background, next_frame}, ui::{root_ui, hash, widgets::{Window, Group, Button, InputText, ComboBox}, Layout},
+    window::{self, clear_background, next_frame}, ui::{root_ui, hash, widgets::{Window, Group, Button, InputText, ComboBox}, Layout}, input::is_key_pressed, miniquad::KeyCode,
 };
-use radar::{line::LineType, position_calc::{PositionCalculator, self}, WINDOW_HT_N_MI, display::{RadarDisplay, TAG_FONT}};
+use radar::{line::LineType, position_calc::{PositionCalculator, self}, WINDOW_HT_N_MI, display::{RadarDisplay, TAG_FONT}, aircraft::AircraftRecord};
 
 use sct_reader::reader::SctReader;
 use sector::{Sector, items::Position};
@@ -21,30 +22,95 @@ mod asr;
 mod radar;
 mod sector;
 
+#[derive(Default)]
+struct TcpStreamKiller(Option<TcpStream>);
+impl Drop for TcpStreamKiller {
+    fn drop(&mut self) {
+        if let Some(tcp_stream) = &self.0 {
+            tcp_stream.shutdown(std::net::Shutdown::Both).ok();
+        }
+    }
+}
+impl TcpStreamKiller {
+    pub fn store(&mut self, tcp_stream: TcpStream) {
+        self.0 = Some(tcp_stream);
+    }
+}
+
+#[derive(Default)]
+pub struct RadarDisplayManager {
+    radar_displays: Vec<RadarDisplay>,
+    active_display: usize,
+}
+impl RadarDisplayManager {
+    pub fn store(&mut self, radar_displays: Vec<RadarDisplay>) {
+        self.radar_displays = radar_displays;
+        self.active_display = 0;
+    }
+    pub fn cycle(&mut self) {
+        if self.radar_displays.is_empty() { return; }
+        self.active_display += 1;
+        if self.active_display > self.radar_displays.len() - 1 {
+            self.active_display = 0;
+        }
+    }
+    pub fn cycle_back(&mut self) {
+        if self.radar_displays.is_empty() { return; }
+        if self.active_display == 0 {
+            self.active_display = self.radar_displays.len() - 1;
+            return;
+        }
+        self.active_display -= 1;
+    }
+    pub fn is_initialised(&self) -> bool {
+        !self.radar_displays.is_empty()
+    }
+    pub fn update(&mut self, aircraft: &mut Vec<AircraftRecord>) {
+        self.radar_displays.get_mut(self.active_display).map(|active_display| active_display.update(aircraft));
+    }
+    pub fn draw(&mut self, aircraft: &mut Vec<AircraftRecord>) {
+        self.radar_displays.get_mut(self.active_display).map(|active_display| active_display.draw(aircraft));
+    }
+    pub fn background_colour(&self) -> Color {
+        self.radar_displays.get(self.active_display).map(|active_display| active_display.background_colour()).unwrap_or(BLACK)
+    }
+}
 
 #[macroquad::main("Sauna Radar")]
 async fn main() {
     // Get command line args
     let args = Args::parse();
-    
-    let mut radar_display: Option<RadarDisplay> = None;
+    let mut tcp_stream_killer = TcpStreamKiller::default();
+    let mut aircraft = Vec::new();
+    let mut radar_display_manager = RadarDisplayManager::default();
+    let mut show_help = true;
+    let mut full_screen = false;
+    let aircraft_receiver = start_ipc_worker();
     // Attempt to load sector file
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
-        let asr = args.asr_file.map(|path| Asr::from_file(path).unwrap());
-        let mut sector: Sector = SctReader::new(BufReader::new(File::open(args.sector_file).unwrap()))
+
+        let mut radar_displays: Vec<(Sector, RadarColours, f32)> = Vec::with_capacity(args.radar_profile_paths.len());
+        for path in args.radar_profile_paths.iter() {
+            // Parse the toml file
+            let file = std::fs::read_to_string(path).unwrap();
+            let profile = toml::from_str::<RadarProfile>(&file).unwrap();
+            
+            // Attempt to load the sector file
+            let mut sector: Sector = SctReader::new(BufReader::new(File::open(profile.sector_file).unwrap()))
             .try_read()
             .unwrap().into();
-        // Set centre airport if there is one
-        if let Some(centre_airport) = args.centre_airport {
-            if let Some(airport) = sector
-                .airports
-                .get_by_name(&centre_airport)
-            {
-                sector.default_centre_pt = airport.position;
+            if let Some(LatLon { lat, lon }) = profile.screen_centre {
+                sector.default_centre_pt = Position::new(lat, lon);
             }
+            // Apply the filters
+            sector.load_filters_from_profile(&profile.filters);
+            
+            radar_displays.push((sector, profile.colours, profile.zoom_level));
         }
-        tx.send((sector, asr)).unwrap();
+
+        
+        tx.send(radar_displays).unwrap();
     });
 
     window::set_fullscreen(true);
@@ -61,22 +127,51 @@ async fn main() {
             InitialisationStage::Running => {},
         }
 
-        if let Some(radar_display) = &mut radar_display {
+        // Update aircraft
+        match aircraft_receiver.try_recv()  {
+            Ok(IpcMessage::TcpStream(tcp_stream)) => {
+                println!("Successfully received");
+                tcp_stream_killer.store(tcp_stream);
+            }
+            Ok(IpcMessage::AircraftData(aircraft_data)) => aircraft = aircraft_data,
+            Err(e) => {
+                if let TryRecvError::Disconnected = e { println!("Try recv error") };
+            }
+        }
 
-            radar_display.update();
-            radar_display.draw();
 
 
+        if radar_display_manager.is_initialised() {
+            if is_key_pressed(KeyCode::F1) {
+                show_help = !show_help;
+            }
+            else if is_key_pressed(KeyCode::F11) {
+                full_screen = !full_screen;
+                window::set_fullscreen(full_screen);
+            }
+            else if is_key_pressed(KeyCode::F6) {
+                radar_display_manager.cycle_back();
+            }
+            else if is_key_pressed(KeyCode::F7) {
+                radar_display_manager.cycle();
+            }
+            radar_display_manager.update(&mut aircraft);
 
-        } else {
-            if let Ok((mut new_sector, new_asr)) = rx.try_recv() {
-                if let Some(new_asr) = new_asr {
-                    new_sector.load_filters_from_asr(&new_asr);
-                }
+            clear_background(radar_display_manager.background_colour());
+            radar_display_manager.draw(&mut aircraft);
 
-                
-                let new_radar_display = RadarDisplay::new(new_sector, args.screen_height_n_mi, start_ipc_worker());
-                radar_display = Some(new_radar_display);
+            if show_help {
+                draw_text("F1 - Show / hide help    F2 - Toggle FMS lines    F3 - Filters    F6 - Previous display    F7 - Next display    F11 - Toggle fullscreen", 10., 20.0, 20., WHITE);
+            }
+        }
+
+        else {
+            clear_background(radar_display_manager.background_colour());
+            if let Ok(new_radar_displays) = rx.try_recv() {
+                let radar_displays = new_radar_displays.into_iter().map(|(sector, colours, zoom_level)| {
+                    RadarDisplay::new(sector, zoom_level, colours)
+                }).collect();
+                radar_display_manager.store(radar_displays);
             }
         }
 
@@ -101,7 +196,7 @@ impl Drop for ReceiverDropGuard {
 }
 
 
-fn start_ipc_worker() -> ReceiverDropGuard {
+fn start_ipc_worker() -> Receiver<IpcMessage> {
     let (tx, rx) = std::sync::mpsc::channel();
 
 
@@ -122,9 +217,7 @@ fn start_ipc_worker() -> ReceiverDropGuard {
         println!("Thread exiting");
     });
 
-
-
-    return ReceiverDropGuard(rx);
+    return rx;
 }
 
 pub enum IpcMessage {
@@ -132,73 +225,15 @@ pub enum IpcMessage {
     AircraftData(Vec<AircraftRecord>),
 }
 
-#[derive(Debug)]
-pub struct AircraftRecord {
-    pub callsign: String,
-    pub position: Position,
-    pub alt: i32,
-    pub fms_lines: Vec<ipc::SimAircraftFmsLine>,
-}
-impl From<ipc::SimAircraftRecord> for AircraftRecord {
-    fn from(value: ipc::SimAircraftRecord) -> Self {
-        AircraftRecord { callsign: value.callsign, position: Position { lat: value.lat, lon: value.lon, cached_x: 0.0, cached_y: 0.0 }, alt: value.alt, fms_lines: value.fms_lines }
-    }
-}
 
-impl AircraftRecord {
-    pub fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, show_fms_lines: bool) {
-        self.position.cache_screen_coords(position_calculator);
-
-        draw_poly_lines(
-            self.position.cached_x,
-            self.position.cached_y,
-            4,
-            5.0,
-            45.0,
-            1.0,
-            WHITE,
-        );
-
-        if show_fms_lines {
-            for line in &self.fms_lines {
-                let mut start_pos = Position {
-                    lat: line.start_lat,
-                    lon: line.start_lon,
-                    cached_x: 0.0,
-                    cached_y: 0.0,
-                };
-                start_pos.cache_screen_coords(position_calculator);
-                let mut end_pos = Position {
-                    lat: line.end_lat,
-                    lon: line.end_lon,
-                    cached_x: 0.0,
-                    cached_y: 0.0,
-                };
-                end_pos.cache_screen_coords(position_calculator);
-
-                draw_line(start_pos.cached_x, start_pos.cached_y, end_pos.cached_x, end_pos.cached_y, 1.0, Color::from_rgba(162, 50, 168, 255));
-            }
-        }
-
-
-        let font = TAG_FONT.get_or_init(|| {
-            load_ttf_font_from_bytes(include_bytes!("../fonts/RobotoMono-Regular.ttf")).unwrap()
-        });
-        let text_params = TextParams {
-            font: Some(font),
-            font_size: 16,
-            font_scale: 1.0,
-            color: WHITE,
-            ..Default::default()
-        };
-
-        draw_text_ex(&self.callsign, self.position.cached_x, self.position.cached_y + 20.0, text_params.clone());
-        draw_text_ex(&self.alt.to_string(), self.position.cached_x, self.position.cached_y + 35.0, text_params);
-    }
-}
 
 enum InitialisationStage {
     Uninitialised,
     Initialised,
     Running,
+}
+
+
+pub fn radar_colour_to_mq_colour(radar_colour: &RadarColour) -> Color {
+    Color::from_rgba(radar_colour.r, radar_colour.g, radar_colour.b, 255)
 }

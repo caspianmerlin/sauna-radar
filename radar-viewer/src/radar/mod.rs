@@ -1,12 +1,13 @@
 use macroquad::{prelude::{Color, WHITE}, shapes::draw_poly_lines, text::{draw_text, TextParams, load_ttf_font_from_bytes, draw_text_ex}};
 
-use crate::{sector::draw::Draw, AircraftRecord};
+use crate::sector::draw::Draw;
 
 use self::display::TAG_FONT;
 
 pub mod display;
 pub mod line;
 pub mod position_calc;
+pub mod aircraft;
 
 pub const WINDOW_HT_N_MI: f32 = 70.0;
 

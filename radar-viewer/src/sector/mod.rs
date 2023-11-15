@@ -1,7 +1,8 @@
-use crate::asr::Asr;
+use crate::{asr::Asr, radar_colour_to_mq_colour};
 
 use self::{items::*, mapped_vec::MappedVec, draw::{Draw, DrawableObjectType}};
 use std::collections::HashMap;
+use ipc::profile::{filters::{RadarFilters, WaypointFilter}, colours::RadarColours};
 use macroquad::{prelude::Color, ui::{Ui, hash}};
 use sct_reader::waypoint::Waypoint;
 
@@ -38,37 +39,103 @@ pub struct Sector {
 }
 
 impl Sector {
-    pub fn load_filters_from_asr(&mut self, asr: &Asr) {
-        fn load_asr_settings_to_mapped_vec<V>(settings: &Vec<String>, mapped_vec: &mut MappedVec<V>) where V: SetVisibility {
-            for entry in settings {
-                if let Some(sector_item) = mapped_vec.get_by_name_mut(entry) {
+    pub fn load_filters_from_profile(&mut self, filters: &RadarFilters) {
+        fn load_waypoint_settings_to_mapped_vec_named_points(filters: &Vec<WaypointFilter>, mapped_vec: &mut MappedVec<NamedPoint>) {
+            for filter in filters {
+                if let Some(sector_item) = mapped_vec.get_by_name_mut(&filter.name) {
+                    sector_item.set_visibility(filter.show_symbol);
+                    sector_item.show_identifier = filter.show_text;
+                }
+            }
+        }
+
+        load_waypoint_settings_to_mapped_vec_named_points(&filters.airports, &mut self.airports);
+        load_waypoint_settings_to_mapped_vec_named_points(&filters.vors, &mut self.vors);
+        load_waypoint_settings_to_mapped_vec_named_points(&filters.ndbs, &mut self.ndbs);
+        load_waypoint_settings_to_mapped_vec_named_points(&filters.fixes, &mut self.fixes);
+
+        fn load_string_settings_to_mapped_vec<V>(filters: &Vec<String>, mapped_vec: &mut MappedVec<V>) where V: SetVisibility {
+            for filter in filters {
+                if let Some(sector_item) = mapped_vec.get_by_name_mut(&filter) {
                     sector_item.set_visibility(true);
                 }
             }
         }
 
-        load_asr_settings_to_mapped_vec(&asr.airports, &mut self.airports);
-        load_asr_settings_to_mapped_vec(&asr.vors, &mut self.vors);
-        load_asr_settings_to_mapped_vec(&asr.ndbs, &mut self.ndbs);
-        load_asr_settings_to_mapped_vec(&asr.fixes, &mut self.fixes);
-        load_asr_settings_to_mapped_vec(&asr.artcc_boundary, &mut self.artcc_entries);
-        load_asr_settings_to_mapped_vec(&asr.artcc_low_boundary, &mut self.artcc_low_entries);
-        load_asr_settings_to_mapped_vec(&asr.artcc_high_boundary, &mut self.artcc_high_entries);
-        load_asr_settings_to_mapped_vec(&asr.low_airways, &mut self.low_airways);
-        load_asr_settings_to_mapped_vec(&asr.high_airways, &mut self.high_airways);
-        load_asr_settings_to_mapped_vec(&asr.sids, &mut self.sid_entries);
-        load_asr_settings_to_mapped_vec(&asr.stars, &mut self.star_entries);
-        load_asr_settings_to_mapped_vec(&asr.geo, &mut self.geo_entries);
-        load_asr_settings_to_mapped_vec(&asr.regions, &mut self.regions);
+        load_string_settings_to_mapped_vec(&filters.artcc, &mut self.artcc_entries);
+        load_string_settings_to_mapped_vec(&filters.artcc_low, &mut self.artcc_low_entries);
+        load_string_settings_to_mapped_vec(&filters.artcc_high, &mut self.artcc_high_entries);
+        load_string_settings_to_mapped_vec(&filters.low_airways, &mut self.low_airways);
+        load_string_settings_to_mapped_vec(&filters.high_airways, &mut self.high_airways);
+        load_string_settings_to_mapped_vec(&filters.sids, &mut self.sid_entries);
+        load_string_settings_to_mapped_vec(&filters.stars, &mut self.star_entries);
+        load_string_settings_to_mapped_vec(&filters.geography, &mut self.geo_entries);
+        load_string_settings_to_mapped_vec(&filters.regions, &mut self.regions);
+
+        // for free_text_section_filter in filters.free_text.iter() {
+        //     if let Some(free_text_entry) = self.labels.get_by_name_mut(&free_text_section_filter.name) {
+        //         for free_text_entry_filter in free_text_section_filter.entries.iter() {
+                    
+        //         }
+        //     };
+            
+            
+        // }
+        
     }
-
-
+    
     pub fn ui_window(&mut self, ui: &mut Ui, search: &str) {
         self.fixes.for_each(|fix| {
             if fix.identifier.starts_with(search) {
                 ui.checkbox(hash!(&fix.identifier), &fix.identifier, &mut fix.show_symbol);
             }
             
+        });
+    }
+
+    pub fn draw(&mut self, position_calculator: &crate::radar::position_calc::PositionCalculator, colours: &RadarColours) {
+        self.regions.for_each(|region| {
+            region.draw(position_calculator);
+        });
+        self.geo_entries.for_each(|entry| {
+            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.geography));
+        });
+        self.artcc_entries.for_each(|entry| {
+            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.artcc));
+        });
+        self.artcc_low_entries.for_each(|entry| {
+            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.artcc_low));
+        });
+        self.artcc_high_entries.for_each(|entry| {
+            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.artcc_high));
+        });
+        self.low_airways.for_each(|entry| {
+            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.low_airways));
+        });
+        self.high_airways.for_each(|entry| {
+            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.high_airways));
+        });
+        self.sid_entries.for_each(|entry| {
+            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.sids));
+        });
+        self.star_entries.for_each(|entry| {
+            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.stars));
+        });
+        
+        self.fixes.for_each(|entry| {
+            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.fixes_symbol), radar_colour_to_mq_colour(&colours.fixes_name), DrawableObjectType::Fix);
+        });
+        self.vors.for_each(|entry| {
+            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.vors_symbol), radar_colour_to_mq_colour(&colours.vors_name), DrawableObjectType::Vor);
+        });
+        self.ndbs.for_each(|entry| {
+            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.ndbs_symbol), radar_colour_to_mq_colour(&colours.ndbs_name), DrawableObjectType::Ndb);
+        });
+        self.airports.for_each(|entry| {
+            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.airports_symbol), radar_colour_to_mq_colour(&colours.airports_name), DrawableObjectType::Airport);
+        });
+        self.labels.for_each(|entry| {
+            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.free_text));
         });
     }
 }
@@ -132,49 +199,7 @@ impl From<sct_reader::sector::Sector> for Sector {
         });
         Sector { name, default_centre_pt, n_mi_per_deg_lat, n_mi_per_deg_lon, magnetic_variation, airports, vors, ndbs, fixes, artcc_entries, artcc_low_entries, artcc_high_entries, low_airways, high_airways, sid_entries, star_entries, geo_entries, regions, labels }
     }
-}
 
-impl Draw for Sector {
-    fn draw(&mut self, position_calculator: &crate::radar::position_calc::PositionCalculator, drawable_object_type: draw::DrawableObjectType) {
-        self.regions.for_each(|region| {
-            region.draw(position_calculator, DrawableObjectType::Default);
-        });
-        self.geo_entries.for_each(|entry| {
-            entry.draw(position_calculator, DrawableObjectType::Geo);
-        });
-        self.artcc_entries.for_each(|entry| {
-            entry.draw(position_calculator, DrawableObjectType::Artcc);
-        });
-        self.artcc_low_entries.for_each(|entry| {
-            entry.draw(position_calculator, DrawableObjectType::ArtccLow);
-        });
-        self.artcc_high_entries.for_each(|entry| {
-            entry.draw(position_calculator, DrawableObjectType::ArtccHigh);
-        });
-        self.low_airways.for_each(|entry| {
-            entry.draw(position_calculator, DrawableObjectType::LowAirway);
-        });
-        self.high_airways.for_each(|entry| {
-            entry.draw(position_calculator, DrawableObjectType::HighAirway);
-        });
-        self.sid_entries.for_each(|entry| {
-            entry.draw(position_calculator, DrawableObjectType::Sid);
-        });
-        self.star_entries.for_each(|entry| {
-            entry.draw(position_calculator, DrawableObjectType::Star);
-        });
-        
-        self.fixes.for_each(|entry| {
-            entry.draw(position_calculator, DrawableObjectType::Fix);
-        });
-        self.vors.for_each(|entry| {
-            entry.draw(position_calculator, DrawableObjectType::Vor);
-        });
-        self.ndbs.for_each(|entry| {
-            entry.draw(position_calculator, DrawableObjectType::Ndb);
-        });
-        self.airports.for_each(|entry| {
-            entry.draw(position_calculator, DrawableObjectType::Airport);
-        });
-    }
+    
+
 }

@@ -1,6 +1,9 @@
+use std::path::PathBuf;
+
 use serde::{Serialize, Deserialize};
 
 
+pub mod profile;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum MessageType {
@@ -24,3 +27,15 @@ pub struct SimAircraftFmsLine {
     pub end_lat: f32,
     pub end_lon: f32,
 }
+
+
+
+
+
+
+
+
+
+
+
+

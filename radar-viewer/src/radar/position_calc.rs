@@ -57,13 +57,13 @@ impl PositionCalculator {
     }
     pub fn zoom_in(&mut self) {
         let new_height =  self.window_ht_n_mi - (self.window_ht_n_mi * 0.15);
-        if (1.0..=700.0).contains(&new_height) {
+        if (0.2..=700.0).contains(&new_height) {
             self.update_zoom(new_height);
         }
     }
     pub fn zoom_out(&mut self) {
         let new_height =  self.window_ht_n_mi + (self.window_ht_n_mi * 0.15);
-        if (1.0..=700.0).contains(&new_height) {
+        if (0.2..=700.0).contains(&new_height) {
             self.update_zoom(new_height);
         }
     }

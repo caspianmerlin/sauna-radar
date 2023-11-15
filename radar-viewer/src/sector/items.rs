@@ -1,4 +1,4 @@
-use macroquad::{prelude::{Color, Vec2}, shapes::{draw_poly_lines, draw_line, draw_triangle}};
+use macroquad::{prelude::{Color, Vec2}, shapes::{draw_poly_lines, draw_line, draw_triangle}, text::{draw_text, measure_text}};
 use sct_reader::waypoint::Waypoint;
 
 use crate::radar::position_calc::PositionCalculator;
@@ -25,6 +25,14 @@ impl From<sct_reader::position::Position<sct_reader::position::Valid>> for Posit
     }
 }
 impl Position {
+    pub fn new(lat: f32, lon: f32) -> Position {
+        Position {
+            lat,
+            lon,
+            cached_x: 0.0,
+            cached_y: 0.0,
+        }
+    }
     pub fn cache_screen_coords(&mut self, position_calculator: &PositionCalculator) {
         self.cached_x = position_calculator.lon_to_window_x(self.lon);
         self.cached_y = position_calculator.lat_to_window_y(self.lat);
@@ -38,39 +46,43 @@ pub struct NamedPoint {
     pub show_symbol: bool,
     pub show_identifier: bool,
 }
-impl Draw for NamedPoint {
-    fn draw(&mut self, position_calculator: &crate::radar::position_calc::PositionCalculator, drawable_object_type: super::draw::DrawableObjectType) {
+impl NamedPoint {
+    pub fn draw(&mut self, position_calculator: &crate::radar::position_calc::PositionCalculator, default_colour: Color, label_colour: Color, drawable_object_type: DrawableObjectType) {
         if position_calculator.invalidated {
             self.position.cache_screen_coords(position_calculator);
         }
-        let colour = drawable_object_type.default_colour();
-        if !self.visible() {
-            return;
-        }
-        match drawable_object_type {
-            DrawableObjectType::Fix => {
-                draw_poly_lines(
-                    self.position.cached_x,
-                    self.position.cached_y,
-                    3,
-                    5.0,
-                    30.0,
-                    1.0,
-                    colour,
-                );
+
+        if (self.visible()) {
+            match drawable_object_type {
+                DrawableObjectType::Fix => {
+                    draw_poly_lines(
+                        self.position.cached_x,
+                        self.position.cached_y,
+                        3,
+                        5.0,
+                        30.0,
+                        1.0,
+                        default_colour,
+                    );
+                }
+                _ => {
+                    draw_poly_lines(
+                        self.position.cached_x,
+                        self.position.cached_y,
+                        4,
+                        5.0,
+                        45.0,
+                        1.0,
+                        default_colour,
+                    );
+                }
             }
-            _ => {
-                draw_poly_lines(
-                    self.position.cached_x,
-                    self.position.cached_y,
-                    4,
-                    5.0,
-                    45.0,
-                    1.0,
-                    colour,
-                );
-            }
         }
+        if self.show_identifier {
+            let half_text_width = measure_text(&self.identifier, None, 20, 1.0).width / 2.0;
+            draw_text(&self.identifier, self.position.cached_x - half_text_width, self.position.cached_y + 20., 20., label_colour);
+        }
+        
     }
 }
 
@@ -102,7 +114,7 @@ pub struct LineGroup {
 }
 
 impl Draw for LineGroup {
-    fn draw(&mut self, position_calculator: &PositionCalculator, drawable_object_type: DrawableObjectType) {
+    fn draw(&mut self, position_calculator: &PositionCalculator, default_colour: Color) {
         if !self.visible() {
             return;
         }
@@ -117,7 +129,7 @@ impl Draw for LineGroup {
                 line.end.cached_x,
                 line.end.cached_y,
                 1.0,
-                line.colour.unwrap_or(drawable_object_type.default_colour()),
+                line.colour.unwrap_or(default_colour),
             );
         }
 
@@ -181,8 +193,8 @@ impl From<sct_reader::sector::RegionGroup> for PolyGroup {
         }
     }
 }
-impl Draw for PolyGroup {
-    fn draw(&mut self, position_calculator: &PositionCalculator, drawable_object_type: DrawableObjectType) {
+impl PolyGroup {
+    pub fn draw(&mut self, position_calculator: &PositionCalculator) {
         if !self.visible() {
             return;
         }
@@ -260,7 +272,7 @@ impl From<sct_reader::sector::Label> for Label {
             text: value.name,
             position: value.position.into(),
             colour: mq_colour_from_sf_colour(value.colour),
-            show: false,
+            show: true,
         }
     }
 }
@@ -271,6 +283,14 @@ pub fn mq_colour_from_sf_colour(value: sct_reader::colour::Colour) -> Color {
         g: value.g as f32 / 255.0,
         b: value.b as f32 / 255.0,
         a: 1.0,
+    }
+}
+impl Draw for Label {
+    fn draw(&mut self, position_calculator: &PositionCalculator, default_colour: Color) {
+        if self.show {
+            self.position.cache_screen_coords(position_calculator);
+            draw_text(&self.text, self.position.cached_x, self.position.cached_y, 15.0, self.colour);
+        }
     }
 }
 
