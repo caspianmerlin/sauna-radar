@@ -245,6 +245,7 @@ fn start_ipc_worker() -> (Receiver<IpcMessage>, AtomicBoolDropGuard) {
                             },
                         };
                         let aircraft_data = aircraft_data.into_iter().map(AircraftRecord::from).collect::<Vec<_>>();
+                        println!("{:#?}", aircraft_data);
                         if let Err(e) = tx.send(IpcMessage::AircraftData(aircraft_data)) {
                             println!("{}", e);
                         }

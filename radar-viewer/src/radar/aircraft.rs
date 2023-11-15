@@ -94,7 +94,7 @@ impl FmsArc {
                 let angle = end_bearing.to_radians();
                 let x = centre.lon + (x_rad * f32::cos(angle));
                 let y = centre.lat + (y_rad * f32::sin(angle));
-                points.push(Position::new(y, x));
+                //points.push(Position::new(y, x));
 
                 let mut lines = Vec::with_capacity(points.len() + 1);
                 for i in 1..points.len() {
