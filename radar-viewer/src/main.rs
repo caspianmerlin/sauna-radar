@@ -1,18 +1,18 @@
 #![allow(unused)]
 
-use std::{fs::File, io::BufReader, sync::{mpsc::{self, Receiver, TryRecvError}, Mutex, Arc, atomic::{AtomicBool, Ordering}}, thread, net::TcpStream, path::PathBuf};
+use std::{fs::File, io::{BufReader, BufWriter, Write}, sync::{mpsc::{self, Receiver, TryRecvError, Sender}, Mutex, Arc, atomic::{AtomicBool, Ordering}}, thread, net::TcpStream, path::PathBuf, ops::DerefMut, error::Error};
 
 use args::Args;
 use asr::Asr;
 use clap::Parser;
-use ipc::profile::{RadarProfile, colours::{RadarColour, RadarColours}, LatLon};
+use fd_lock::{RwLockWriteGuard, RwLock};
+
 use macroquad::{
     prelude::{Color, Vec2, BLACK, BLUE, WHITE},
     shapes::{draw_poly_lines, draw_triangle, draw_line},
     text::{draw_text, load_ttf_font_from_bytes, TextParams, draw_text_ex},
-    window::{self, clear_background, next_frame}, ui::{root_ui, hash, widgets::{Window, Group, Button, InputText, ComboBox}, Layout}, input::is_key_pressed, miniquad::KeyCode,
+    window::{self, clear_background, next_frame}, ui::{root_ui, hash, widgets::{Window, Group, Button, InputText, ComboBox}, Layout, Skin}, input::is_key_pressed, miniquad::KeyCode, texture::Image, math::RectOffset, color::GREEN,
 };
-use radar::{line::LineType, position_calc::{PositionCalculator, self}, WINDOW_HT_N_MI, display::{RadarDisplay, TAG_FONT}, aircraft::AircraftRecord};
 
 use sct_reader::reader::SctReader;
 use sector::{Sector, items::Position};
@@ -21,21 +21,14 @@ mod args;
 mod asr;
 mod radar;
 mod sector;
+mod console;
+mod aircraft;
+mod util;
+mod shutdown;
+mod app;
+mod ipc;
 
-#[derive(Default)]
-struct TcpStreamKiller(Option<TcpStream>);
-impl Drop for TcpStreamKiller {
-    fn drop(&mut self) {
-        if let Some(tcp_stream) = &self.0 {
-            tcp_stream.shutdown(std::net::Shutdown::Both).ok();
-        }
-    }
-}
-impl TcpStreamKiller {
-    pub fn store(&mut self, tcp_stream: TcpStream) {
-        self.0 = Some(tcp_stream);
-    }
-}
+
 
 #[derive(Default)]
 pub struct RadarDisplayManager {
@@ -77,33 +70,15 @@ impl RadarDisplayManager {
 }
 
 #[macroquad::main("Sauna Radar")]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>> {
 
-    // Attempt to obtain unique access to the lockfile.
-    // If we can't, another instance of this program is running.
-    let lock_file_path = get_config_dir().unwrap().join(".radarlockfile");
-    let mut lock_file = fd_lock::RwLock::new(File::create(lock_file_path).expect("Unable to create lock file"));
-    let lock_file_guard = match lock_file.try_write() {
-        Ok(lock_file_guard) => lock_file_guard,
-        Err(_) => {
-            eprintln!("\nAnother instance of this application is already running. Closing...\n");
-            std::process::exit(1);
-        }
-    };
+    
+
+    
 
 
 
-
-
-
-    // Get command line args
-    let args = Args::parse();
-    let mut tcp_stream_killer = TcpStreamKiller::default();
-    let mut aircraft = Vec::new();
-    let mut radar_display_manager = RadarDisplayManager::default();
-    let mut show_help = true;
-    let mut full_screen = false;
-    let (aircraft_receiver, atomic_bool_drop_guard) = start_ipc_worker();
+    let (aircraft_receiver, ipc_message_sender, atomic_bool_drop_guard) = start_ipc_worker();
     // Attempt to load sector file
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
@@ -136,14 +111,7 @@ async fn main() {
 
 
     loop {
-        match initialisation_stage {
-            InitialisationStage::Uninitialised => initialisation_stage = InitialisationStage::Initialised,
-            InitialisationStage::Initialised => {
-                window::set_fullscreen(false);
-                initialisation_stage = InitialisationStage::Running;
-            },
-            InitialisationStage::Running => {},
-        }
+
 
         // Update aircraft
         match aircraft_receiver.try_recv()  {
@@ -158,6 +126,7 @@ async fn main() {
             Err(e) => {
                 if let TryRecvError::Disconnected = e { println!("Try recv error") };
             }
+            _ => {},
         }
 
 
@@ -165,6 +134,26 @@ async fn main() {
         if radar_display_manager.is_initialised() {
             if is_key_pressed(KeyCode::F1) {
                 show_help = !show_help;
+            }
+            if is_key_pressed(KeyCode::Enter) {
+                if let Some(text_command) = try_parse_text_command(&text_input, &aircraft) {
+                    ipc_message_sender.send(IpcMessage::TextCommand(text_command)).ok();
+                    text_input.clear();
+                }
+
+                root_ui().set_input_focus(txt_input_id);
+            }
+            if is_key_pressed(KeyCode::Tab) {
+                if !text_input.is_empty() {
+                    let input = text_input.to_uppercase();
+                    for aircraft in aircraft.iter() {
+                        if aircraft.callsign.contains(&input) {
+                            text_input = format!("{}, ", aircraft.callsign);
+                            break;
+                        }
+                    }
+                }
+                
             }
             else if is_key_pressed(KeyCode::F11) {
                 full_screen = !full_screen;
@@ -197,9 +186,10 @@ async fn main() {
         }
 
         
-
-
-
+        root_ui().push_skin(&editbox_skin);
+        InputText::new(txt_input_id).position(Vec2::new(10.0, window::screen_height() - 30.0)).size(Vec2::new(window::screen_width() - 20., 20.0))
+        .ui(root_ui().deref_mut(), &mut text_input);
+        root_ui().pop_skin();
         macroquad_profiler::profiler(Default::default());
         
         next_frame().await
@@ -216,64 +206,15 @@ impl Drop for AtomicBoolDropGuard {
     }
 }
 
-
-fn start_ipc_worker() -> (Receiver<IpcMessage>, AtomicBoolDropGuard) {
-    let (tx, rx) = std::sync::mpsc::channel();
-    let should_end = Arc::new(AtomicBool::new(false));
-    let should_end_2 = Arc::clone(&should_end);
-
-    thread::spawn(move || {
-        let should_end = should_end_2;
-        let tx = tx;
-
-        'outer: loop {
-            std::thread::sleep(std::time::Duration::from_millis(500));
-            match TcpStream::connect("127.0.0.1:14416") {
-                Err(_) => {
-                    if should_end.load(Ordering::Relaxed) {
-                        break 'outer;
-                    }
-                },
-                Ok(tcp_stream) => {
-                    tx.send(IpcMessage::TcpStream(tcp_stream.try_clone().unwrap()));
-                    loop {
-                        let aircraft_data = match bincode::deserialize_from(&tcp_stream) {
-                            Ok(ipc::MessageType::AircraftData(aircraft_data)) => aircraft_data,
-                            Err(_) => {
-                                tx.send(IpcMessage::ConnectionLost).ok();
-                                break;
-                            },
-                        };
-                        let aircraft_data = aircraft_data.into_iter().map(AircraftRecord::from).collect::<Vec<_>>();
-                        if let Err(e) = tx.send(IpcMessage::AircraftData(aircraft_data)) {
-                            println!("{}", e);
-                        }
-                    }
-                }
-
-                
-            }
-            
-        }
-
-    });
-
-    return (rx, AtomicBoolDropGuard(should_end));
-}
-
 pub enum IpcMessage {
     TcpStream(TcpStream),
     AircraftData(Vec<AircraftRecord>),
     ConnectionLost,
+    TextCommand(TextCommandRequest),
 }
 
 
 
-enum InitialisationStage {
-    Uninitialised,
-    Initialised,
-    Running,
-}
 
 
 pub fn radar_colour_to_mq_colour(radar_colour: &RadarColour) -> Color {
@@ -283,10 +224,21 @@ pub fn radar_colour_to_mq_colour(radar_colour: &RadarColour) -> Color {
 
 
 
-pub fn get_config_dir() -> Option<PathBuf> {
-    let mut dir = dirs::config_dir();
-    if let Some(dir) = &mut dir {
-        dir.push("sauna-ui-rs");
+
+
+
+fn try_parse_text_command(txt: &str, aircraft_list: &Vec<AircraftRecord>) -> Option<TextCommandRequest> {
+    let mut split = txt.split(&[',', ' ']).filter(|x| !x.is_empty());
+    let callsign = split.next()?.to_string();
+    if !aircraft_list.iter().any(|aircraft| aircraft.callsign == callsign) {
+        return None;
     }
-    dir
+    let command = split.next()?.to_string();
+    let args = split.map(|arg| arg.to_owned()).collect::<Vec<_>>();
+    let request = TextCommandRequest {
+        callsign,
+        command,
+        args
+    };
+    Some(request)
 }

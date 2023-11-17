@@ -1,3 +1,4 @@
+use common::Position;
 use macroquad::{prelude::{Color, Vec2}, window, input::{mouse_position_local, mouse_position}};
 use sct_reader::line::{ColouredLine, Line as SectorLine};
 
@@ -176,5 +177,9 @@ impl PositionCalculator {
     }
     pub fn n_mi_to_deg_lon(&self, n_mi: f32) -> f32 {
         n_mi / self.n_mi_per_deg_lon
+    }
+
+    pub fn get_screen_coords_from_position(&self, position: &Position) -> (f32, f32) {
+        (self.lon_to_window_x(position.lon), self.lat_to_window_y(position.lat))
     }
 }

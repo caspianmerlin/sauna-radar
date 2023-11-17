@@ -61,9 +61,7 @@ impl RadarDisplay {
             let diff = self.mouse_pos_last_frame - current_position;
             self.position_calculator.update_position_by_mouse_offset(diff);
         }
-        if is_mouse_button_pressed(MouseButton::Left) {
-            println!("Mouse pos: {:?}", mouse_position());
-        }
+
 
         if !ui_has_mouse {
             let mouse_wheel_delta = mouse_wheel().1;

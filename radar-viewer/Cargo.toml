@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 sct-reader = { path = "../sct-reader" }
-ipc = { path = "../ipc" }
+common = { path = "../common" }
 macroquad = "0.4.4"
 clap = { version = "4.4.7", features = ["derive"] }
 macroquad-profiler = "0.2.0"
@@ -18,3 +18,4 @@ once_cell = "1.18.0"
 toml = "0.8.8"
 fd-lock = "4.0.0"
 dirs = "5.0.1"
+indexmap = "2.1.0"

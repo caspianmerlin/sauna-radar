@@ -1,24 +1,13 @@
 use std::f32::consts::PI;
 
-use ipc::{SimAircraftFmsLine, SimAircraftFmsGraphic};
+
 use macroquad::{shapes::{draw_poly_lines, draw_line}, color::{WHITE, Color}, text::{load_ttf_font_from_bytes, TextParams, draw_text_ex}};
+
 
 use crate::sector::{items::Position, draw::{Draw, DrawableObjectType}};
 
 use super::{position_calc::{self, PositionCalculator}, display::TAG_FONT};
 
-#[derive(Debug)]
-pub struct AircraftRecord {
-    pub callsign: String,
-    pub position: Position,
-    pub alt: i32,
-    pub fms_graphics: Vec<FmsGraphic>,
-}
-impl From<ipc::SimAircraftRecord> for AircraftRecord {
-    fn from(value: ipc::SimAircraftRecord) -> Self {
-        AircraftRecord { callsign: value.callsign, position: Position { lat: value.lat, lon: value.lon, cached_x: 0.0, cached_y: 0.0 }, alt: value.alt, fms_graphics: value.fms_graphics.into_iter().map(FmsGraphic::from).collect(), }
-    }
-}
 
 impl AircraftRecord {
     pub fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, show_fms_lines: bool) {
@@ -70,20 +59,10 @@ impl FmsArc {
         match self.state {
             FmsArcState::Initialised { .. } => return,
             FmsArcState::Uninitialised { centre, radius_m, start_bearing_true, end_bearing_true, clockwise } => {
-
-                println!("Start bearing: {}", start_bearing_true);
-                println!("End bearing: {}", end_bearing_true);
-                println!("Clockwise: {}", clockwise);
                 let (mut start_bearing, mut end_bearing) = if clockwise { (start_bearing_true, end_bearing_true) } else { (end_bearing_true, start_bearing_true) };
                 if end_bearing < start_bearing {
                     end_bearing += 360.0;
                 }
-                println!("Start bearing adj: {}", start_bearing);
-                println!("End bearing adj: {}", end_bearing);
-
-
-
-
 
                 let x_rad = position_calc.n_mi_to_deg_lon(m_to_n_mi(radius_m));
                 let y_rad = position_calc.n_mi_to_deg_lat(m_to_n_mi(radius_m));
@@ -114,12 +93,6 @@ impl FmsArc {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum FmsArcState {
-    Initialised{ lines: Vec<FmsLine> },
-    Uninitialised { centre: Position, radius_m: f32, start_bearing_true: f32, end_bearing_true: f32, clockwise: bool }, 
-}
-
 impl Draw for FmsArc {
     fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, default_colour: Color) {
         
@@ -134,11 +107,7 @@ impl Draw for FmsArc {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct FmsLine {
-    pub start: Position,
-    pub end: Position,
-}
+
 
 impl From<SimAircraftFmsGraphic> for FmsGraphic {
     fn from(value: SimAircraftFmsGraphic) -> Self {
@@ -172,6 +141,3 @@ impl Draw for FmsLine {
     }
 }
 
-pub fn m_to_n_mi(m: f32) -> f32 {
-    m / 1852.0
-}
