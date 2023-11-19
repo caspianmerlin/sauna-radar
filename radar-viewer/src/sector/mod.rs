@@ -1,8 +1,9 @@
-use crate::{asr::Asr, radar_colour_to_mq_colour};
+
 
 use self::{items::*, mapped_vec::MappedVec, draw::{Draw, DrawableObjectType}};
 use std::collections::HashMap;
-use ipc::profile::{filters::{RadarFilters, WaypointFilter}, colours::RadarColours};
+use crate::util;
+use common::radar_profile::{filters::{RadarFilters, WaypointFilter}, colours::RadarColours};
 use macroquad::{prelude::Color, ui::{Ui, hash}};
 use sct_reader::waypoint::Waypoint;
 
@@ -100,45 +101,45 @@ impl Sector {
             region.draw(position_calculator);
         });
         self.geo_entries.for_each(|entry| {
-            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.geography));
+            entry.draw(position_calculator, util::radar_colour_to_mq_colour(&colours.geography));
         });
         self.artcc_entries.for_each(|entry| {
-            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.artcc));
+            entry.draw(position_calculator, util::radar_colour_to_mq_colour(&colours.artcc));
         });
         self.artcc_low_entries.for_each(|entry| {
-            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.artcc_low));
+            entry.draw(position_calculator, util::radar_colour_to_mq_colour(&colours.artcc_low));
         });
         self.artcc_high_entries.for_each(|entry| {
-            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.artcc_high));
+            entry.draw(position_calculator, util::radar_colour_to_mq_colour(&colours.artcc_high));
         });
         self.low_airways.for_each(|entry| {
-            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.low_airways));
+            entry.draw(position_calculator, util::radar_colour_to_mq_colour(&colours.low_airways));
         });
         self.high_airways.for_each(|entry| {
-            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.high_airways));
+            entry.draw(position_calculator, util::radar_colour_to_mq_colour(&colours.high_airways));
         });
         self.sid_entries.for_each(|entry| {
-            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.sids));
+            entry.draw(position_calculator, util::radar_colour_to_mq_colour(&colours.sids));
         });
         self.star_entries.for_each(|entry| {
-            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.stars));
+            entry.draw(position_calculator, util::radar_colour_to_mq_colour(&colours.stars));
         });
         
         self.fixes.for_each(|entry| {
-            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.fixes_symbol), radar_colour_to_mq_colour(&colours.fixes_name), DrawableObjectType::Fix);
+            entry.draw(position_calculator, util::radar_colour_to_mq_colour(&colours.fixes_symbol), util::radar_colour_to_mq_colour(&colours.fixes_name), DrawableObjectType::Fix);
         });
         self.vors.for_each(|entry| {
-            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.vors_symbol), radar_colour_to_mq_colour(&colours.vors_name), DrawableObjectType::Vor);
+            entry.draw(position_calculator, util::radar_colour_to_mq_colour(&colours.vors_symbol), util::radar_colour_to_mq_colour(&colours.vors_name), DrawableObjectType::Vor);
         });
         self.ndbs.for_each(|entry| {
-            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.ndbs_symbol), radar_colour_to_mq_colour(&colours.ndbs_name), DrawableObjectType::Ndb);
+            entry.draw(position_calculator, util::radar_colour_to_mq_colour(&colours.ndbs_symbol), util::radar_colour_to_mq_colour(&colours.ndbs_name), DrawableObjectType::Ndb);
         });
         self.airports.for_each(|entry| {
-            entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.airports_symbol), radar_colour_to_mq_colour(&colours.airports_name), DrawableObjectType::Airport);
+            entry.draw(position_calculator, util::radar_colour_to_mq_colour(&colours.airports_symbol), util::radar_colour_to_mq_colour(&colours.airports_name), DrawableObjectType::Airport);
         });
         self.labels.for_each(|entry| {
             entry.labels.for_each(|entry| {
-                entry.draw(position_calculator, radar_colour_to_mq_colour(&colours.free_text));
+                entry.draw(position_calculator, util::radar_colour_to_mq_colour(&colours.free_text));
             }); 
             
         });

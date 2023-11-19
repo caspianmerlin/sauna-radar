@@ -1,21 +1,24 @@
 use std::f32::consts::PI;
 
 
+use common::{aircraft_data::fms_graphics::{FmsArc, FmsGraphic, FmsLine, FmsArcState}, position::Position};
 use macroquad::{shapes::{draw_poly_lines, draw_line}, color::{WHITE, Color}, text::{load_ttf_font_from_bytes, TextParams, draw_text_ex}};
 
 
-use crate::sector::{items::Position, draw::{Draw, DrawableObjectType}};
+use crate::{sector::draw::{Draw, DrawableObjectType}, aircraft::Aircraft};
 
 use super::{position_calc::{self, PositionCalculator}, display::TAG_FONT};
 
-
-impl AircraftRecord {
-    pub fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, show_fms_lines: bool) {
-        self.position.cache_screen_coords(position_calculator);
+pub trait DrawableAircraft {
+    fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, show_fms_lines: bool);
+}
+impl DrawableAircraft for Aircraft {
+    fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, show_fms_lines: bool) {
+        let (x, y) = position_calculator.get_screen_coords_from_position(self.position());
 
         draw_poly_lines(
-            self.position.cached_x,
-            self.position.cached_y,
+            x,
+            y,
             4,
             5.0,
             45.0,
@@ -24,7 +27,7 @@ impl AircraftRecord {
         );
 
         if show_fms_lines {
-            self.fms_graphics.iter_mut().for_each(|fms_line| fms_line.draw(position_calculator, Color::new(0.6352941176470588, 0.196078431372549, 0.6588235294117647, 1.0)));
+            self.data().fms_graphics.iter_mut().for_each(|fms_line| fms_line.draw(position_calculator, Color::new(0.6352941176470588, 0.196078431372549, 0.6588235294117647, 1.0)));
         }
 
 
@@ -39,23 +42,20 @@ impl AircraftRecord {
             ..Default::default()
         };
 
-        draw_text_ex(&self.callsign, self.position.cached_x, self.position.cached_y + 20.0, text_params.clone());
-        draw_text_ex(&self.alt.to_string(), self.position.cached_x, self.position.cached_y + 35.0, text_params);
+        draw_text_ex(self.callsign(), x, y + 20.0, text_params.clone());
+        draw_text_ex(&(self.position().alt.floor() as i32).to_string(), x, y + 35.0, text_params);
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum FmsGraphic {
-    Line(FmsLine),
-    Arc(FmsArc),
+
+
+pub trait DrawableFmsArc {
+    fn calculate_arc_points(&mut self, position_calc: &PositionCalculator);
+
 }
 
-#[derive(Debug, PartialEq)]
-pub struct FmsArc {
-    pub state: FmsArcState,
-}
-impl FmsArc {
-    pub fn calculate_arc_points(&mut self, position_calc: &PositionCalculator) {
+impl DrawableFmsArc for FmsArc {
+    fn calculate_arc_points(&mut self, position_calc: &PositionCalculator) {
         match self.state {
             FmsArcState::Initialised { .. } => return,
             FmsArcState::Uninitialised { centre, radius_m, start_bearing_true, end_bearing_true, clockwise } => {
@@ -64,8 +64,8 @@ impl FmsArc {
                     end_bearing += 360.0;
                 }
 
-                let x_rad = position_calc.n_mi_to_deg_lon(m_to_n_mi(radius_m));
-                let y_rad = position_calc.n_mi_to_deg_lat(m_to_n_mi(radius_m));
+                let x_rad = position_calc.n_mi_to_deg_lon(common::util::m_to_n_mi(radius_m));
+                let y_rad = position_calc.n_mi_to_deg_lat(common::util::m_to_n_mi(radius_m));
 
                 let mut points = Vec::new();
 
@@ -88,14 +88,11 @@ impl FmsArc {
                 }
                 self.state = FmsArcState::Initialised { lines };
             }
-        
         }
     }
 }
-
 impl Draw for FmsArc {
     fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, default_colour: Color) {
-        
         if let FmsArcState::Uninitialised { .. } = self.state {
             self.calculate_arc_points(position_calculator);
         }
@@ -109,18 +106,6 @@ impl Draw for FmsArc {
 
 
 
-impl From<SimAircraftFmsGraphic> for FmsGraphic {
-    fn from(value: SimAircraftFmsGraphic) -> Self {
-        match value {
-            SimAircraftFmsGraphic::Line(sim_aircraft_fms_line) => {
-                FmsGraphic::Line(FmsLine { start: Position { lat: sim_aircraft_fms_line.start_lat, lon: sim_aircraft_fms_line.start_lon, cached_x: 0.0, cached_y: 0.0 }, end: Position { lat: sim_aircraft_fms_line.end_lat, lon: sim_aircraft_fms_line.end_lon, cached_x: 0.0, cached_y: 0.0 } })
-            },
-            SimAircraftFmsGraphic::Arc(sim_aircraft_fms_arc) => {
-                FmsGraphic::Arc(FmsArc { state: FmsArcState::Uninitialised { centre: Position::new(sim_aircraft_fms_arc.centre_lat, sim_aircraft_fms_arc.centre_lon), radius_m: sim_aircraft_fms_arc.radius_m, start_bearing_true: sim_aircraft_fms_arc.start_true_bearing, end_bearing_true: sim_aircraft_fms_arc.end_true_bearing, clockwise: sim_aircraft_fms_arc.clockwise } })
-            }
-        }
-    }
-}
 
 impl Draw for FmsGraphic {
     fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, default_colour: Color) {
@@ -134,10 +119,9 @@ impl Draw for FmsGraphic {
 impl Draw for FmsLine {
     fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, default_colour: Color) {
 
-            self.start.cache_screen_coords(position_calculator);
-            self.end.cache_screen_coords(position_calculator);
+        let (start_x, start_y) = position_calculator.get_screen_coords_from_position(&self.start);
+        let (end_x, end_y) = position_calculator.get_screen_coords_from_position(&self.end);
 
-        draw_line(self.start.cached_x, self.start.cached_y, self.end.cached_x, self.end.cached_y, 1.0, default_colour);
+        draw_line(start_x, start_y, end_x, end_y, 1.0, default_colour);
     }
 }
-

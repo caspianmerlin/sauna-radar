@@ -46,7 +46,7 @@ impl IpcManager {
 impl Drop for IpcManager {
     fn drop(&mut self) {
         self.thread_should_terminate.store(true, Ordering::Relaxed);
-        if let Some(tcp_stream) = self.tcp_stream_to_drop {
+        if let Some(tcp_stream) = self.tcp_stream_to_drop.take() {
             tcp_stream.shutdown(Shutdown::Both).ok();
         }
         if let Some(thread) = self.thread.take() {

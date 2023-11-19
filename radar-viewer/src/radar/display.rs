@@ -1,15 +1,16 @@
 use std::{sync::{Arc, Mutex, mpsc::{Receiver, TryRecvError}}, net::TcpStream};
 
-use ipc::{SimAircraftRecord, profile::colours::RadarColours};
+
+use common::radar_profile::colours::RadarColours;
 use macroquad::{prelude::{Color, is_key_down, KeyCode, is_key_pressed, is_mouse_button_pressed, MouseButton, mouse_position, is_mouse_button_down, mouse_delta_position, Vec2, WHITE, mouse_wheel}, window, text::{draw_text, Font, load_ttf_font_from_bytes}, ui::{Ui, root_ui}};
 use once_cell::sync::{Lazy, OnceCell};
 use sct_reader::line::{ColouredLine, Line as SectorLine};
 
-use crate::{sector::{Sector, draw::{Draw, DrawableObjectType}, ui::SectorUi}, IpcMessage, radar_colour_to_mq_colour};
+use crate::{sector::{Sector, draw::{Draw, DrawableObjectType}, ui::SectorUi}, util, aircraft::AircraftManager};
 
 use super::{
     line::{Line, LineType},
-    position_calc::PositionCalculator, WINDOW_HT_N_MI, aircraft::AircraftRecord,
+    position_calc::PositionCalculator, WINDOW_HT_N_MI, draw::DrawableAircraft,
 };
 
 pub static TAG_FONT: OnceCell<Font> = OnceCell::new(); 
@@ -36,9 +37,9 @@ impl RadarDisplay {
         RadarDisplay { sector, position_calculator, mouse_pos_last_frame: Vec2::default(), sector_ui: SectorUi::new(), show_fms_lines: false, colours }
     }
     pub fn background_colour(&self) -> Color {
-        radar_colour_to_mq_colour(&self.colours.background)
+        util::radar_colour_to_mq_colour(&self.colours.background)
     }
-    pub fn update(&mut self, aircraft: &mut Vec<AircraftRecord>) {
+    pub fn update(&mut self, aircraft_manager: &mut AircraftManager) {
         
         let ui_has_mouse = root_ui().is_mouse_over(Vec2::new(mouse_position().0, mouse_position().1));
 
@@ -79,11 +80,11 @@ impl RadarDisplay {
 
 
 
-    pub fn draw(&mut self, aircraft: &mut Vec<AircraftRecord>) {
+    pub fn draw(&mut self, aircraft_manager: &mut AircraftManager) {
         self.position_calculator.invalidated = true;
         self.sector.draw(&mut self.position_calculator, &self.colours);
 
-        for aircraft in aircraft.iter_mut() {
+        for aircraft in aircraft_manager.aircraft() {
             aircraft.draw(&mut self.position_calculator, self.show_fms_lines);
         }
 

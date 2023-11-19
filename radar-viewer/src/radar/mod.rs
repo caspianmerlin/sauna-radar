@@ -7,8 +7,9 @@ use self::display::TAG_FONT;
 pub mod display;
 pub mod line;
 pub mod position_calc;
-pub mod aircraft;
-
+pub mod draw;
+pub mod manager;
+pub mod loader;
 
 pub const WINDOW_HT_N_MI: f32 = 70.0;
 

@@ -1,4 +1,4 @@
-use common::Position;
+use common::position::Position;
 use macroquad::{prelude::{Color, Vec2}, window, input::{mouse_position_local, mouse_position}};
 use sct_reader::line::{ColouredLine, Line as SectorLine};
 

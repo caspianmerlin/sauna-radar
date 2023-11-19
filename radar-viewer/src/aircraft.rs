@@ -1,5 +1,6 @@
 use std::{ops::Deref, fmt::Display};
 
+use common::{aircraft_data::AircraftData, position::Position};
 use indexmap::IndexMap;
 
 
@@ -11,6 +12,17 @@ pub struct AircraftManager {
     aircraft_map:           IndexMap<String, Aircraft>,
     current_selected_idx:   Option<usize>,
 }
+impl AircraftManager {
+    pub fn new() -> Self {
+        Self {
+            aircraft_map: IndexMap::new(),
+            current_selected_idx: None,
+        }
+    }
+    pub fn aircraft(&mut self) -> indexmap::map::ValuesMut<'_, String, Aircraft> {
+        self.aircraft_map.values_mut()
+    }
+}
 
 
 
@@ -18,14 +30,16 @@ pub struct AircraftManager {
 #[derive(Debug)]
 pub struct Aircraft {
     callsign: String,
-    updates: Vec<DataUpdate>,
+    updates: Vec<AircraftData>,
 }
-
-// NOTE: This is fine because the constructor ensures that at least one DataUpdate exists from creation.
-impl Deref for Aircraft {
-    type Target = DataUpdate;
-    fn deref(&self) -> &Self::Target {
-        self.updates.last().unwrap()
+impl Aircraft {
+    pub fn data(&mut self) -> &mut AircraftData {
+        self.updates.last_mut().unwrap()
+    }
+    pub fn position(&mut self) -> &Position {
+        &self.data().position
+    }
+    pub fn callsign(&self) -> &str {
+        &self.callsign
     }
 }
-
