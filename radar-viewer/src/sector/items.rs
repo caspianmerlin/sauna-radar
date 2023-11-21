@@ -5,39 +5,7 @@ use crate::radar::position_calc::PositionCalculator;
 
 use super::{draw::{Draw, DrawableObjectType}, mapped_vec::MappedVec};
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub struct Position {
-    pub lat: f32,
-    pub lon: f32,
 
-    pub cached_x: f32,
-    pub cached_y: f32,
-}
-
-impl From<sct_reader::position::Position<sct_reader::position::Valid>> for Position {
-    fn from(value: sct_reader::position::Position<sct_reader::position::Valid>) -> Self {
-        Position {
-            lat: value.lat as f32,
-            lon: value.lon as f32,
-            cached_x: 0.0,
-            cached_y: 0.0,
-        }
-    }
-}
-impl Position {
-    pub fn new(lat: f32, lon: f32) -> Position {
-        Position {
-            lat,
-            lon,
-            cached_x: 0.0,
-            cached_y: 0.0,
-        }
-    }
-    pub fn cache_screen_coords(&mut self, position_calculator: &PositionCalculator) {
-        self.cached_x = position_calculator.lon_to_window_x(self.lon);
-        self.cached_y = position_calculator.lat_to_window_y(self.lat);
-    }
-}
 
 #[derive(Debug)]
 pub struct NamedPoint {
