@@ -16,7 +16,7 @@ use macroquad::{
 };
 
 use sct_reader::reader::SctReader;
-use sector::{Sector, items::Position};
+use sector::Sector;
 
 mod args;
 mod asr;
@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut lock_file = fd_lock::RwLock::new(File::create(lock_file_path).expect("Unable to create lock file"));
     let lock_file_guard = lock_file.try_write().expect("Another instance of this application is already running. Closing...");
 
-    let mut app = Application::new();    
+    let mut app = Application::new()?;
 
     loop {
 
@@ -109,6 +109,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         // InputText::new(txt_input_id).position(Vec2::new(10.0, window::screen_height() - 30.0)).size(Vec2::new(window::screen_width() - 20., 20.0))
         // .ui(root_ui().deref_mut(), &mut text_input);
         // root_ui().pop_skin();
+
+        app.update();
+        app.draw();
         macroquad_profiler::profiler(Default::default());
         
         next_frame().await

@@ -93,5 +93,8 @@ impl RadarDisplay {
         
         self.sector_ui.show_ui(&mut self.sector);
     }
+    pub fn position_calculator(&self) -> &PositionCalculator {
+        &self.position_calculator
+    }
 }
 

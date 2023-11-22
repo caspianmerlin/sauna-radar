@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use macroquad::color::{Color, BLACK};
+use macroquad::{color::{Color, BLACK}, input::is_key_pressed, miniquad::KeyCode};
 
 use crate::aircraft::AircraftManager;
 
@@ -42,6 +42,15 @@ impl RadarManager {
         !self.radar_displays.is_empty()
     }
     pub fn update(&mut self, aircraft_manager: &mut AircraftManager) {
+        if let Some(radar_displays) = self.loader.poll() {
+            println!("Loaded {} radar displays", radar_displays.len());
+            self.radar_displays = radar_displays;
+        }
+        if is_key_pressed(KeyCode::F6) {
+            self.cycle_back();
+        } else if is_key_pressed(KeyCode::F7) {
+            self.cycle();
+        }
         self.radar_displays.get_mut(self.active_display).map(|active_display| active_display.update(aircraft_manager));
     }
     pub fn draw(&mut self, aircraft_manager: &mut AircraftManager) {
@@ -49,5 +58,8 @@ impl RadarManager {
     }
     pub fn background_colour(&self) -> Color {
         self.radar_displays.get(self.active_display).map(|active_display| active_display.background_colour()).unwrap_or(BLACK)
+    }
+    pub fn active_display(&self) -> Option<&RadarDisplay> {
+        self.radar_displays.get(self.active_display)
     }
 }

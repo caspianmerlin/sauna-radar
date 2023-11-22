@@ -1,7 +1,9 @@
 use std::{ops::Deref, fmt::Display};
 
-use common::{aircraft_data::AircraftData, position::Position};
+use common::{aircraft_data::{AircraftData, AircraftUpdate}, position::Position};
 use indexmap::IndexMap;
+
+use crate::radar::position_calc::PositionCalculator;
 
 
 
@@ -21,6 +23,12 @@ impl AircraftManager {
     }
     pub fn aircraft(&mut self) -> indexmap::map::ValuesMut<'_, String, Aircraft> {
         self.aircraft_map.values_mut()
+    }
+    pub fn handle_aircraft_updates(&mut self, aircraft_updates: &[AircraftUpdate]) {
+        todo!()
+    }
+    pub fn draw(&mut self, position_calculator: &PositionCalculator) {
+        
     }
 }
 

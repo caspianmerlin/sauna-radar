@@ -19,12 +19,13 @@ impl RadarDisplayLoader {
     pub fn new() -> Self {
         Self {
             thread: None,
-            ready: Arc::new(AtomicBool::new(false)),
+            ready: Arc::new(AtomicBool::new(true)),
         }
     }
 
     pub fn start_load(&mut self, paths: Vec<PathBuf>) {
         if !self.ready.load(Ordering::Relaxed) || self.thread.is_some() {
+            println!("Not starting to load");
             return;
         }
         self.ready.store(false, Ordering::Relaxed);
@@ -79,7 +80,7 @@ fn load_sectors(paths: Vec<PathBuf>) -> Option<Vec<PartiallyLoadedSector>> {
             .try_read()
             .ok()?.into();
             if let Some(LatLon { lat, lon }) = profile.screen_centre {
-                //sector.default_centre_pt = Position::new(lat, lon);
+                sector.default_centre_pt = Position::new(lat, lon);
             }
             // Apply the filters
             sector.load_filters_from_profile(&profile.filters);

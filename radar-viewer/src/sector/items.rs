@@ -2,42 +2,15 @@ use macroquad::{prelude::{Color, Vec2}, shapes::{draw_poly_lines, draw_line, dra
 use sct_reader::waypoint::Waypoint;
 
 use crate::radar::position_calc::PositionCalculator;
-
+use common::position::Position;
 use super::{draw::{Draw, DrawableObjectType}, mapped_vec::MappedVec};
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub struct Position {
-    pub lat: f32,
-    pub lon: f32,
-
-    pub cached_x: f32,
-    pub cached_y: f32,
+fn sct_reader_pos_to_common_pos(value: sct_reader::position::Position<sct_reader::position::Valid>) -> Position {
+    Position { lat: value.lat as f32, lon: value.lon as f32, alt: 0.0 }
 }
 
-impl From<sct_reader::position::Position<sct_reader::position::Valid>> for Position {
-    fn from(value: sct_reader::position::Position<sct_reader::position::Valid>) -> Self {
-        Position {
-            lat: value.lat as f32,
-            lon: value.lon as f32,
-            cached_x: 0.0,
-            cached_y: 0.0,
-        }
-    }
-}
-impl Position {
-    pub fn new(lat: f32, lon: f32) -> Position {
-        Position {
-            lat,
-            lon,
-            cached_x: 0.0,
-            cached_y: 0.0,
-        }
-    }
-    pub fn cache_screen_coords(&mut self, position_calculator: &PositionCalculator) {
-        self.cached_x = position_calculator.lon_to_window_x(self.lon);
-        self.cached_y = position_calculator.lat_to_window_y(self.lat);
-    }
-}
+
+
 
 #[derive(Debug)]
 pub struct NamedPoint {
@@ -48,16 +21,14 @@ pub struct NamedPoint {
 }
 impl NamedPoint {
     pub fn draw(&mut self, position_calculator: &crate::radar::position_calc::PositionCalculator, default_colour: Color, label_colour: Color, drawable_object_type: DrawableObjectType) {
-        if position_calculator.invalidated {
-            self.position.cache_screen_coords(position_calculator);
-        }
 
+        let (x, y) = position_calculator.get_screen_coords_from_position(&self.position);
         if (self.visible()) {
             match drawable_object_type {
                 DrawableObjectType::Fix => {
                     draw_poly_lines(
-                        self.position.cached_x,
-                        self.position.cached_y,
+                        x,
+                        y,
                         3,
                         5.0,
                         30.0,
@@ -67,8 +38,8 @@ impl NamedPoint {
                 }
                 _ => {
                     draw_poly_lines(
-                        self.position.cached_x,
-                        self.position.cached_y,
+                        x,
+                        y,
                         4,
                         5.0,
                         45.0,
@@ -80,7 +51,7 @@ impl NamedPoint {
         }
         if self.show_identifier {
             let half_text_width = measure_text(&self.identifier, None, 20, 1.0).width / 2.0;
-            draw_text(&self.identifier, self.position.cached_x - half_text_width, self.position.cached_y + 20., 20., label_colour);
+            draw_text(&self.identifier, x - half_text_width, y + 20., 20., label_colour);
         }
         
     }
@@ -118,16 +89,15 @@ impl Draw for LineGroup {
         if !self.visible() {
             return;
         }
+        
         for line in &mut self.lines {
-            if position_calculator.invalidated {
-                line.start.cache_screen_coords(position_calculator);
-                line.end.cache_screen_coords(position_calculator);
-            }
+            let (start_x, start_y) = position_calculator.get_screen_coords_from_position(&line.start);
+            let (end_x, end_y) = position_calculator.get_screen_coords_from_position(&line.end);
             draw_line(
-                line.start.cached_x,
-                line.start.cached_y,
-                line.end.cached_x,
-                line.end.cached_y,
+                start_x,
+                start_y,
+                end_x,
+                end_y,
                 1.0,
                 line.colour.unwrap_or(default_colour),
             );
@@ -200,20 +170,18 @@ impl PolyGroup {
         }
 
         for poly in &mut self.polys {
-            if position_calculator.invalidated {
-                for point in &mut poly.points {
-                    point.cache_screen_coords(position_calculator);
-                }
-            }
-
             for triangle in poly.indices.chunks_exact(3) {
                 let index_a = triangle[0];
                 let index_b = triangle[1];
                 let index_c = triangle[2];
 
-                let vertex_a = Vec2::new(poly.points[index_a].cached_x, poly.points[index_a].cached_y);
-                let vertex_b = Vec2::new(poly.points[index_b].cached_x, poly.points[index_b].cached_y);
-                let vertex_c = Vec2::new(poly.points[index_c].cached_x, poly.points[index_c].cached_y);
+                let (a_x, a_y) = position_calculator.get_screen_coords_from_position(&poly.points[index_a]);
+                let (b_x, b_y) = position_calculator.get_screen_coords_from_position(&poly.points[index_b]);
+                let (c_x, c_y) = position_calculator.get_screen_coords_from_position(&poly.points[index_c]);
+
+                let vertex_a = Vec2::new(a_x, a_y);
+                let vertex_b = Vec2::new(b_x, b_y);
+                let vertex_c = Vec2::new(c_x, c_y);
 
     
                 draw_triangle(vertex_a, vertex_b, vertex_c, poly.colour);
@@ -294,10 +262,10 @@ pub fn mq_colour_from_sf_colour(value: sct_reader::colour::Colour) -> Color {
 impl Draw for Label {
     fn draw(&mut self, position_calculator: &PositionCalculator, default_colour: Color) {
         if self.show {
-            self.position.cache_screen_coords(position_calculator);
+            let (x, y) = position_calculator.get_screen_coords_from_position(&self.position);
             let text_dims = measure_text(&self.text, None, 15, 1.0);
-            let text_x = self.position.cached_x - (text_dims.width / 2.0);
-            let text_y = self.position.cached_y + (text_dims.height / 2.0);
+            let text_x = x - (text_dims.width / 2.0);
+            let text_y = y + (text_dims.height / 2.0);
 
             draw_text(&self.text, text_x, text_y, 15.0, self.colour);
         }

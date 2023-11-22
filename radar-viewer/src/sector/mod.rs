@@ -3,7 +3,7 @@
 use self::{items::*, mapped_vec::MappedVec, draw::{Draw, DrawableObjectType}};
 use std::collections::HashMap;
 use crate::util;
-use common::radar_profile::{filters::{RadarFilters, WaypointFilter}, colours::RadarColours};
+use common::{radar_profile::{filters::{RadarFilters, WaypointFilter}, colours::RadarColours}, position::Position};
 use macroquad::{prelude::Color, ui::{Ui, hash}};
 use sct_reader::waypoint::Waypoint;
 

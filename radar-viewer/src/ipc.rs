@@ -1,7 +1,7 @@
 use std::{sync::{atomic::{AtomicBool, Ordering}, Arc, mpsc::{Sender, Receiver, self}}, thread::JoinHandle, net::{TcpStream, Shutdown}, time::Duration, io::{BufWriter, Write}};
 use std::thread;
 
-use common::ipc::{radar_to_ui, ui_to_radar};
+use common::{ipc::{radar_to_ui, ui_to_radar}, aircraft_data::AircraftUpdate};
 
 const ATTEMPT_UI_CONNECT_DELAY: Duration = Duration::from_millis(500);
 
@@ -83,8 +83,12 @@ fn ipc_worker(thread_should_terminate: Arc<AtomicBool>, msg_tx: Sender<ImplMessa
                         // Wait for the next inbound message
                         if let Ok(packet) = bincode::deserialize_from::<_, ui_to_radar::PacketType>(&tcp_stream) {
                             match packet {
-                                ui_to_radar::PacketType::AircraftDataUpdate(aircraft_update) => todo!(),
-                                ui_to_radar::PacketType::LogMessage(log_message) => todo!(),
+                                ui_to_radar::PacketType::AircraftDataUpdate(aircraft_update) => {
+                                    msg_tx.send(ImplMessage::Message(Message::AircraftDataUpdate(aircraft_update))).ok();
+                                },
+                                ui_to_radar::PacketType::LogMessage(log_message) => {
+                                    msg_tx.send(ImplMessage::Message(Message::LogMessage(log_message))).ok();
+                                }
                             }
                         } else {
                             break;
@@ -101,7 +105,8 @@ fn ipc_worker(thread_should_terminate: Arc<AtomicBool>, msg_tx: Sender<ImplMessa
 
 #[derive(Debug, Clone)]
 pub enum Message {
-
+    AircraftDataUpdate(Vec<AircraftUpdate>),
+    LogMessage(String),
 }
 
 #[derive(Debug)]

@@ -13,6 +13,14 @@ impl Console {
     pub fn new() -> Self {
         Self { input_txt: String::new(), editbox_skin: editbox_skin() }
     }
+
+    pub fn handle_log_message(&mut self, log_message: &str) {
+        todo!()
+    }
+
+    pub fn draw(&mut self) {
+        
+    }
 }
 
 
