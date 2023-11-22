@@ -10,32 +10,33 @@ pub mod fms_graphics;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AircraftUpdate {
-    callsign: String,
-    data: AircraftData,
+    pub callsign: String,
+    pub data: AircraftData,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AircraftData {
-    pub position: Position,
-    pub heading_mag: f32,
-    pub heading_true: f32,
-    pub track_mag: f32,
-    pub track_true: f32,
-    pub pitch: f32,
-    pub bank: f32,
-    pub indicated_airspeed: f32,
-    pub ground_speed: f32,
-    pub vertical_speed: f32,
-    pub wind_direction: f32,
-    pub wind_speed: f32,
-    pub on_ground: bool,
-    pub altimeter_setting_hpa: f32,
+    pub position: Position, //
+    pub heading_mag: f32, //
+    pub heading_true: f32, //
+    pub track_mag: f32, //
+    pub track_true: f32, //
+    pub pitch: f32, //
+    pub bank: f32, //
+    pub indicated_airspeed: f32, //
+    pub mach_number: f32, //
+    pub ground_speed: f32, //
+    pub vertical_speed: f32, //
+    pub wind_direction: f32, //
+    pub wind_speed: f32, //
+    pub on_ground: bool, //
+    pub altimeter_setting_hpa: f32, //
     pub autopilot: Autopilot,
-    pub fms_string: String,
-    pub fms_graphics: Vec<FmsGraphic>,
-    pub sim_rate: f32,
-    pub is_paused: f32,
-    pub connection_status: ConnectionStatus,
+    pub fms_string: String, //
+    pub fms_graphics: Vec<FmsGraphic>, //
+    pub sim_rate: f32, //
+    pub is_paused: bool, //
+    pub connection_status: ConnectionStatus, //
 }
 
 
@@ -45,23 +46,24 @@ pub struct AircraftData {
 /// Autopilot
 /// This can be deserialised directly from Sauna API
 /// as well as used locally
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Autopilot {
-    selected_heading: u32,
-    selected_altitude: u32,
-    selected_vertical_speed: i32,
-    selected_fpa: f64,
-    selected_speed: Speed,
+    pub selected_heading: u32,
+    pub selected_altitude: u32,
+    pub selected_vertical_speed: i32,
+    pub selected_fpa: f32,
+    pub selected_speed_units: SpeedUnits,
+    pub selected_speed: i32,
 
 
 
-    current_lateral_mode: LateralMode,
-    armed_lateral_modes: Vec<LateralMode>,
-    current_vertical_mode: VerticalMode,
-    armed_vertical_modes: Vec<VerticalMode>,
-    current_thrust_mode: ThrustMode,
-    armed_thrust_modes: Vec<ThrustMode>,
+    pub current_lateral_mode: LateralMode,
+    pub armed_lateral_modes: Vec<LateralMode>,
+    pub current_vertical_mode: VerticalMode,
+    pub armed_vertical_modes: Vec<VerticalMode>,
+    pub current_thrust_mode: ThrustMode,
+    pub armed_thrust_modes: Vec<ThrustMode>,
 }
 
 /// Autopilot lateral mode
@@ -194,10 +196,9 @@ impl Display for SpeedMode {
 /// as well as used locally
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-#[serde(tag = "selectedSpeedUnits", content = "selectedSpeed")]
-pub enum Speed {
-    Knots(i32),
-    Mach(i32),
+pub enum SpeedUnits {
+    Knots,
+    Mach,
 }
 
 
@@ -209,24 +210,7 @@ pub enum TransponderMode {
     Ident,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct Fms {
-    pub as_string: String,
-    pub fms_lines: Vec<SimAircraftFmsLine>,
-}
 
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[serde(untagged)]
-pub enum SimAircraftFmsLine {
-    #[serde(rename_all = "camelCase")]
-    Arc  { start_point: Position, end_point: Position, center: Position, #[serde(rename = "radius_m")] radius_m: f32, start_true_bearing: f32, end_true_bearing: f32, clockwise: bool },
-
-    #[serde(rename_all = "camelCase")]
-    Line { start_point: Position, end_point: Position },
-}
 
 
 
