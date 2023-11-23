@@ -9,6 +9,8 @@ use crate::{sector::draw::{Draw, DrawableObjectType}, aircraft::Aircraft};
 
 use super::{position_calc::{self, PositionCalculator}, display::TAG_FONT};
 
+const NUM_HISTORY_DOTS: usize = 7;
+
 pub trait DrawableAircraft {
     fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, show_fms_lines: bool);
 }
@@ -30,6 +32,22 @@ impl DrawableAircraft for Aircraft {
             self.data().fms_graphics.iter_mut().for_each(|fms_line| fms_line.draw(position_calculator, Color::new(0.6352941176470588, 0.196078431372549, 0.6588235294117647, 1.0)));
         }
 
+        // History dots
+        for update in self.updates().iter().rev().skip(self.updates().len() % 4).step_by(4).take(NUM_HISTORY_DOTS) {
+            let (x, y) = position_calculator.get_screen_coords_from_position(&update.position);
+            draw_poly_lines(
+                x,
+                y,
+                4,
+                3.0,
+                45.0,
+                1.0,
+                WHITE,
+            );
+        }
+
+
+        // Tag
 
         let font = TAG_FONT.get_or_init(|| {
             load_ttf_font_from_bytes(include_bytes!("../../fonts/RobotoMono-Regular.ttf")).unwrap()

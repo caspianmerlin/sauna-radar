@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use macroquad::{color::{Color, BLACK}, input::is_key_pressed, miniquad::KeyCode};
+use macroquad::{color::{Color, BLACK}, input::is_key_pressed, miniquad::KeyCode, window::clear_background};
 
 use crate::aircraft::AircraftManager;
 
@@ -54,6 +54,7 @@ impl RadarManager {
         self.radar_displays.get_mut(self.active_display).map(|active_display| active_display.update(aircraft_manager));
     }
     pub fn draw(&mut self, aircraft_manager: &mut AircraftManager) {
+        clear_background(self.background_colour());
         self.radar_displays.get_mut(self.active_display).map(|active_display| active_display.draw(aircraft_manager));
     }
     pub fn background_colour(&self) -> Color {

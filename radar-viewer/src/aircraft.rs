@@ -3,7 +3,7 @@ use std::{ops::Deref, fmt::Display};
 use common::{aircraft_data::{AircraftData, AircraftUpdate}, position::Position};
 use indexmap::IndexMap;
 
-use crate::radar::position_calc::PositionCalculator;
+use crate::radar::{position_calc::PositionCalculator, draw::DrawableAircraft};
 
 
 
@@ -24,11 +24,18 @@ impl AircraftManager {
     pub fn aircraft(&mut self) -> indexmap::map::ValuesMut<'_, String, Aircraft> {
         self.aircraft_map.values_mut()
     }
-    pub fn handle_aircraft_updates(&mut self, aircraft_updates: &[AircraftUpdate]) {
-        todo!()
+    pub fn handle_aircraft_updates(&mut self, aircraft_updates: Vec<AircraftUpdate>) {
+        for AircraftUpdate { callsign, data } in aircraft_updates {
+            if let Some(aircraft) = self.aircraft_map.get_mut(&callsign) {
+                aircraft.updates.push(data);
+            } else {
+                let aircraft = Aircraft { callsign: callsign.clone(), updates: vec![data] };
+                self.aircraft_map.insert(callsign, aircraft);
+            }
+        }
     }
-    pub fn draw(&mut self, position_calculator: &PositionCalculator) {
-        
+    pub fn draw(&mut self, position_calculator: &PositionCalculator, show_fms_lines: bool) {
+        self.aircraft_map.values_mut().for_each(|aircraft| aircraft.draw(position_calculator, show_fms_lines));
     }
 }
 
@@ -49,5 +56,8 @@ impl Aircraft {
     }
     pub fn callsign(&self) -> &str {
         &self.callsign
+    }
+    pub fn updates(&self) -> &Vec<AircraftData> {
+        &self.updates
     }
 }

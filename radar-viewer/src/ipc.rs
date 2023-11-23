@@ -57,7 +57,7 @@ impl Drop for IpcManager {
 
 
 fn ipc_worker(thread_should_terminate: Arc<AtomicBool>, msg_tx: Sender<ImplMessage>, rtu_rx: Receiver<radar_to_ui::PacketType>, port: u16) -> JoinHandle<()> {
-
+    
     thread::spawn(move || {
         let hostname = format!("localhost:{port}");
         'outer: loop {
@@ -78,6 +78,10 @@ fn ipc_worker(thread_should_terminate: Arc<AtomicBool>, msg_tx: Sender<ImplMessa
                             std::io::copy(&mut size.as_slice(), &mut tcp_sender).ok();
                             std::io::copy(&mut bytes.as_slice(), &mut tcp_sender).ok();
                             tcp_sender.flush().ok();
+                        }
+
+                        if thread_should_terminate.load(Ordering::Relaxed) {
+                            break 'outer;
                         }
 
                         // Wait for the next inbound message

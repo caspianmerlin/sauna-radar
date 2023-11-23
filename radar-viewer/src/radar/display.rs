@@ -81,15 +81,9 @@ impl RadarDisplay {
 
 
     pub fn draw(&mut self, aircraft_manager: &mut AircraftManager) {
-        self.position_calculator.invalidated = true;
         self.sector.draw(&mut self.position_calculator, &self.colours);
 
-        for aircraft in aircraft_manager.aircraft() {
-            aircraft.draw(&mut self.position_calculator, self.show_fms_lines);
-        }
-
-        
-        
+        aircraft_manager.draw(&mut self.position_calculator, self.show_fms_lines);
         
         self.sector_ui.show_ui(&mut self.sector);
     }

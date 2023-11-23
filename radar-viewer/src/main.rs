@@ -50,10 +50,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 
 
-        // if radar_display_manager.is_initialised() {
-        //     if is_key_pressed(KeyCode::F1) {
-        //         show_help = !show_help;
-        //     }
+
         //     if is_key_pressed(KeyCode::Enter) {
         //         if let Some(text_command) = try_parse_text_command(&text_input, &aircraft) {
         //             ipc_message_sender.send(IpcMessage::TextCommand(text_command)).ok();
@@ -74,35 +71,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         //         }
                 
         //     }
-        //     else if is_key_pressed(KeyCode::F11) {
-        //         full_screen = !full_screen;
-        //         window::set_fullscreen(full_screen);
-        //     }
-        //     else if is_key_pressed(KeyCode::F6) {
-        //         radar_display_manager.cycle_back();
-        //     }
-        //     else if is_key_pressed(KeyCode::F7) {
-        //         radar_display_manager.cycle();
-        //     }
-        //     radar_display_manager.update(&mut aircraft);
-
-        //     clear_background(radar_display_manager.background_colour());
-        //     radar_display_manager.draw(&mut aircraft);
-
-        //     if show_help {
-        //         draw_text("F1 - Show / hide help    F2 - Toggle FMS lines    F3 - Filters    F6 - Previous display    F7 - Next display    F11 - Toggle fullscreen", 10., 20.0, 20., WHITE);
-        //     }
-        // }
-
-        // else {
-        //     clear_background(radar_display_manager.background_colour());
-        //     if let Ok(new_radar_displays) = rx.try_recv() {
-        //         let radar_displays = new_radar_displays.into_iter().map(|(sector, colours, zoom_level)| {
-        //             RadarDisplay::new(sector, zoom_level, colours)
-        //         }).collect();
-        //         radar_display_manager.store(radar_displays);
-        //     }
-        // }
 
         
         // root_ui().push_skin(&editbox_skin);
