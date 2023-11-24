@@ -20,3 +20,4 @@ fd-lock = "4.0.0"
 dirs = "5.0.1"
 indexmap = "2.1.0"
 log = { version = "0.4.20", features = ["std"] }
+ureq = { version = "2.8.0", features = ["json"] }

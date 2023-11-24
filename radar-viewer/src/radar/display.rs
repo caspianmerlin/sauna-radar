@@ -22,6 +22,7 @@ pub struct RadarDisplay {
     mouse_pos_last_frame: Vec2,
     sector_ui: SectorUi,
     show_fms_lines: bool,
+    num_speed_vectors: usize,
     colours: RadarColours,
 }
 
@@ -34,7 +35,7 @@ impl RadarDisplay {
             sector.n_mi_per_deg_lat,
             sector.n_mi_per_deg_lon,
         );
-        RadarDisplay { sector, position_calculator, mouse_pos_last_frame: Vec2::default(), sector_ui: SectorUi::new(), show_fms_lines: false, colours }
+        RadarDisplay { sector, position_calculator, mouse_pos_last_frame: Vec2::default(), sector_ui: SectorUi::new(), show_fms_lines: false, colours, num_speed_vectors: 0 }
     }
     pub fn background_colour(&self) -> Color {
         util::radar_colour_to_mq_colour(&self.colours.background)
@@ -57,11 +58,17 @@ impl RadarDisplay {
         if is_key_pressed(KeyCode::F3) {
             self.sector_ui.toggle_visibility();
         }
-        
+
+        if is_key_pressed(KeyCode::F5) {
+            self.num_speed_vectors += 1;
+            if self.num_speed_vectors == 4 {
+                self.num_speed_vectors = 0;
+            }
+        }
         if is_mouse_button_down(MouseButton::Right) {
             let diff = self.mouse_pos_last_frame - current_position;
             self.position_calculator.update_position_by_mouse_offset(diff);
-        }
+        }       
 
 
         if !ui_has_mouse {
@@ -83,7 +90,7 @@ impl RadarDisplay {
     pub fn draw(&mut self, aircraft_manager: &mut AircraftManager) {
         self.sector.draw(&mut self.position_calculator, &self.colours);
 
-        aircraft_manager.draw(&mut self.position_calculator, self.show_fms_lines);
+        aircraft_manager.draw(&mut self.position_calculator, self.show_fms_lines, self.num_speed_vectors);
         
         self.sector_ui.show_ui(&mut self.sector);
     }

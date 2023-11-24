@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 
 use common::{aircraft_data::fms_graphics::{FmsArc, FmsGraphic, FmsLine, FmsArcState}, position::Position};
-use macroquad::{shapes::{draw_poly_lines, draw_line}, color::{WHITE, Color}, text::{load_ttf_font_from_bytes, TextParams, draw_text_ex}};
+use macroquad::{shapes::{draw_poly_lines, draw_line}, color::{WHITE, Color, GREEN}, text::{load_ttf_font_from_bytes, TextParams, draw_text_ex}};
 
 
 use crate::{sector::draw::{Draw, DrawableObjectType}, aircraft::Aircraft};
@@ -12,12 +12,16 @@ use super::{position_calc::{self, PositionCalculator}, display::TAG_FONT};
 const NUM_HISTORY_DOTS: usize = 7;
 
 pub trait DrawableAircraft {
-    fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, show_fms_lines: bool);
+    fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, show_fms_lines: bool, num_speed_vectors: usize, current_selected: &Option<String>);
 }
 impl DrawableAircraft for Aircraft {
-    fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, show_fms_lines: bool) {
+    fn draw(&mut self, position_calculator: &position_calc::PositionCalculator, show_fms_lines: bool, num_speed_vectors: usize, current_selected: &Option<String>) {
         let (x, y) = position_calculator.get_screen_coords_from_position(self.position());
-
+        let selected = match current_selected {
+            Some(cs) => self.callsign() == cs,
+            None => false,
+        };
+        let colour = if selected { GREEN } else { WHITE };
         draw_poly_lines(
             x,
             y,
@@ -25,7 +29,7 @@ impl DrawableAircraft for Aircraft {
             5.0,
             45.0,
             1.0,
-            WHITE,
+            colour,
         );
 
         if show_fms_lines {
@@ -42,10 +46,37 @@ impl DrawableAircraft for Aircraft {
                 3.0,
                 45.0,
                 1.0,
-                WHITE,
+                colour,
             );
         }
 
+        if num_speed_vectors > 0 {
+            let gs_m_per_s = common::util::knots_to_m_per_s(self.data().ground_speed);
+            let true_track = self.data().track_true;
+            let pos = self.position();
+
+            let pos_a = pos.get_point_at_dist_and_brg(gs_m_per_s * 10., true_track);
+            let pos_b = pos.get_point_at_dist_and_brg(gs_m_per_s * 60., true_track);
+            let (ax, ay) = position_calculator.get_screen_coords_from_position(&pos_a);
+            let (bx, by) = position_calculator.get_screen_coords_from_position(&pos_b);
+            draw_line(ax, ay, bx, by, 1.0, colour);
+
+            if num_speed_vectors > 1 {
+                let pos_c = pos.get_point_at_dist_and_brg(gs_m_per_s * 70., true_track);
+                let pos_d = pos.get_point_at_dist_and_brg(gs_m_per_s * 120., true_track);
+                let (cx, cy) = position_calculator.get_screen_coords_from_position(&pos_c);
+                let (dx, dy) = position_calculator.get_screen_coords_from_position(&pos_d);
+                draw_line(cx, cy, dx, dy, 1.0, colour);
+            }
+
+                if num_speed_vectors > 2 {
+                let pos_e = pos.get_point_at_dist_and_brg(gs_m_per_s * 130., true_track);
+                let pos_f = pos.get_point_at_dist_and_brg(gs_m_per_s * 180., true_track);
+                let (ex, ey) = position_calculator.get_screen_coords_from_position(&pos_e);
+                let (fx, fy) = position_calculator.get_screen_coords_from_position(&pos_f);
+                draw_line(ex, ey, fx, fy, 1.0, colour);
+            }
+        }
 
         // Tag
 
@@ -56,7 +87,7 @@ impl DrawableAircraft for Aircraft {
             font: Some(font),
             font_size: 16,
             font_scale: 1.0,
-            color: WHITE,
+            color: colour,
             ..Default::default()
         };
 

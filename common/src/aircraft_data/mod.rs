@@ -122,8 +122,14 @@ pub enum VerticalMode {
     FlightPathAngle,
     #[serde(rename = "ASEL")]
     AltitudeSelect,
-    #[serde(rename = "VNAV")]
-    VNAV,
+    #[serde(rename = "VPTH")]
+    VerticalPath,
+    #[serde(rename = "VASEL")]
+    VerticalAltitudeSelect,
+    #[serde(rename = "VFLCH")]
+    VerticalFlightLevelChange,
+    #[serde(rename = "VALT")]
+    VerticalAltitudeHold,
     #[serde(rename = "TOGA")]
     TOGA,
     #[serde(rename = "LDG")]
@@ -141,7 +147,10 @@ impl Display for VerticalMode {
             VerticalMode::VerticalSpeed => "V/S",
             VerticalMode::FlightPathAngle => "FPA",
             VerticalMode::AltitudeSelect => "ASEL",
-            VerticalMode::VNAV => "VNAV",
+            VerticalMode::VerticalPath => "VPTH",
+            VerticalMode::VerticalAltitudeSelect => "VASEL",
+            VerticalMode::VerticalFlightLevelChange => "VFLCH",
+            VerticalMode::VerticalAltitudeHold => "VALT",
             VerticalMode::TOGA => "TO/GA",
             VerticalMode::Landing => "LAND",
             VerticalMode::Taxi => "TAXI",

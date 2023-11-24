@@ -5,7 +5,12 @@ use clap::Parser;
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
-    /// Port of the Sauna UI client
+
+    /// Sauna API hostname
+    #[arg(short, value_name = "HOSTNAME")]
+    pub hostname: String,
+
+    /// Sauna API port
     #[arg(short, value_name = "PORT")]
     pub port: u16,
 

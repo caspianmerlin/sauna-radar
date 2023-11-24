@@ -22,12 +22,13 @@ impl Logger {
 
 impl log::Log for Logger {
     fn enabled(&self, metadata: &log::Metadata) -> bool {
-        println!("Enabled called");
         metadata.level() <= self.logging_level
     }
 
     fn log(&self, record: &log::Record) {
-        self.sender.send(record.args().to_string()).unwrap();
+        if self.enabled(record.metadata()) {
+            self.sender.send(record.args().to_string()).unwrap();
+        }
     }
 
     fn flush(&self) {

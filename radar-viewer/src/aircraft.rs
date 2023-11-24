@@ -2,6 +2,7 @@ use std::{ops::Deref, fmt::Display};
 
 use common::{aircraft_data::{AircraftData, AircraftUpdate}, position::Position};
 use indexmap::IndexMap;
+use macroquad::input::{is_mouse_button_pressed, mouse_position};
 
 use crate::radar::{position_calc::PositionCalculator, draw::DrawableAircraft};
 
@@ -12,13 +13,13 @@ use crate::radar::{position_calc::PositionCalculator, draw::DrawableAircraft};
 pub struct AircraftManager {
     /// Stores all the aircraft records
     aircraft_map:           IndexMap<String, Aircraft>,
-    current_selected_idx:   Option<usize>,
+    current_selected:   Option<String>,
 }
 impl AircraftManager {
     pub fn new() -> Self {
         Self {
             aircraft_map: IndexMap::new(),
-            current_selected_idx: None,
+            current_selected: None,
         }
     }
     pub fn aircraft(&mut self) -> indexmap::map::ValuesMut<'_, String, Aircraft> {
@@ -34,11 +35,34 @@ impl AircraftManager {
             }
         }
     }
-    pub fn draw(&mut self, position_calculator: &PositionCalculator, show_fms_lines: bool) {
-        self.aircraft_map.values_mut().for_each(|aircraft| aircraft.draw(position_calculator, show_fms_lines));
+    pub fn draw(&mut self, position_calculator: &PositionCalculator, show_fms_lines: bool, num_speed_vectors: usize) {
+        self.aircraft_map.values_mut().for_each(|aircraft| aircraft.draw(position_calculator, show_fms_lines, num_speed_vectors, &self.current_selected));
     }
     pub fn get_aircraft(&self, callsign: &str) -> Option<&Aircraft> {
         self.aircraft_map.get(callsign)
+    }
+
+    pub fn check_if_ac_clicked(&mut self, mouse_position: (f32, f32), position_calculator: &PositionCalculator) -> Option<&Aircraft> {
+        for aircraft in self.aircraft_map.values_mut() {
+            if aircraft.was_clicked(mouse_position, position_calculator) {
+                let was_selected = match &self.current_selected {
+                    Some(cs) => aircraft.callsign() == cs,
+                    None => false,
+                };
+
+                if was_selected {
+                    self.current_selected = None;
+                    return None;
+                } else {
+                    self.current_selected = Some(aircraft.callsign.clone());
+                    return Some(aircraft);
+                }
+            }
+        }
+        return None;
+    }
+    pub fn current_selected(&self) -> Option<&String> {
+        self.current_selected.as_ref()
     }
 }
 
@@ -54,13 +78,25 @@ impl Aircraft {
     pub fn data(&mut self) -> &mut AircraftData {
         self.updates.last_mut().unwrap()
     }
-    pub fn position(&mut self) -> &Position {
-        &self.data().position
+    pub fn position(&self) -> &Position {
+        &self.updates.last().unwrap().position
     }
     pub fn callsign(&self) -> &str {
         &self.callsign
     }
     pub fn updates(&self) -> &Vec<AircraftData> {
         &self.updates
+    }
+    pub fn was_clicked(&mut self, mouse_position: (f32, f32), position_calculator: &PositionCalculator) -> bool {
+        let (centre_x, centre_y) = position_calculator.get_screen_coords_from_position(self.position());
+        let left = centre_x - 5.;
+        let right = centre_x + 5.;
+        let top = centre_y - 5.;
+        let bottom = centre_y + 5.;
+
+        if (left..=right).contains(&mouse_position.0) && (top..=bottom).contains(&mouse_position.1) {
+            return true;
+        }
+        return false;
     }
 }

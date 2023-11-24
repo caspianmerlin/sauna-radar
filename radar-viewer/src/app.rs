@@ -2,13 +2,13 @@ use std::{error::Error, ops::DerefMut};
 
 use clap::Parser;
 use common::{ipc::radar_to_ui, api_requests::ApiRequestType};
-use macroquad::{input::is_key_pressed, miniquad::KeyCode, window::{self, screen_width, screen_height}, text::draw_text, color::{WHITE, Color, GREEN, RED}, shapes::draw_rectangle, math::Vec2, ui::{widgets::InputText, hash, root_ui}};
+use macroquad::{input::{is_key_pressed, mouse_position, is_mouse_button_pressed}, miniquad::{KeyCode, MouseButton}, window::{self, screen_width, screen_height}, text::draw_text, color::{WHITE, Color, GREEN, RED}, shapes::draw_rectangle, math::Vec2, ui::{widgets::InputText, hash, root_ui}};
 
-use crate::{args::Args, console::Console, aircraft::AircraftManager, ipc::{IpcManager, Message}, radar::manager::RadarManager};
+use crate::{args::Args, console::Console, aircraft::AircraftManager, radar::manager::RadarManager, api_link::{ApiLink, Message}};
 
 const MAX_IPC_MESSAGES: usize = 10;
 
-const HELP_TXT: &str = "F1 - Show / hide help    F2 - Toggle FMS lines    F3 - Filters    F6 - Previous display    F7 - Next display    F11 - Toggle fullscreen";
+const HELP_TXT: &str = "F1 - Show / hide help    F2 - Toggle FMS lines    F3 - Filters    F5 - Speed vectors    F6 - Previous display    F7 - Next display    F11 - Toggle fullscreen";
 
 
 
@@ -17,7 +17,7 @@ pub struct Application {
     args: Args,
     radar_manager: RadarManager,
     aircraft_manager: AircraftManager,
-    ipc_manager: IpcManager,
+    api_link: ApiLink,
     console: Console,
 
     show_help: bool,
@@ -29,19 +29,34 @@ impl Application {
 
     pub fn new() -> Result<Self, Box<dyn Error>> {
         let args = Args::try_parse()?;
-        let console = Console::new(log::Level::Trace);
+        let console = Console::new(log::Level::Info);
         let radar_manager = RadarManager::new(args.radar_profile_paths.clone());
         let aircraft_manager = AircraftManager::new();
-        let ipc_manager = IpcManager::new(args.port);
+        let api_link = ApiLink::new(args.hostname.clone(), args.port);
 
         Ok(
-            Self { args, radar_manager, aircraft_manager, ipc_manager, console, show_help: true, full_screen: false, input: String::new() }
+            Self { args, radar_manager, aircraft_manager, api_link, console, show_help: true, full_screen: false, input: String::new() }
         )
     }
 
     pub fn update(&mut self) {
 
         // Deal with any key presses
+        let mouse_position = mouse_position();
+        let ui_has_mouse = root_ui().is_mouse_over(Vec2::new(mouse_position.0, mouse_position.1));
+        if let Some(text_command_request) = self.console.update(&self.aircraft_manager) {
+            self.api_link.send(radar_to_ui::PacketType::ApiRequest(ApiRequestType::TextCommand(text_command_request)));
+        }
+        if !ui_has_mouse {
+            if is_mouse_button_pressed(MouseButton::Left) {
+                if let Some(position_calculator) = self.radar_manager.active_display().map(|x| x.position_calculator()) {
+                    if let Some(_) = self.aircraft_manager.check_if_ac_clicked(mouse_position, position_calculator) {
+                        self.console.set_focus_to_input();
+                    }
+                }
+            }
+        }
+
         if is_key_pressed(KeyCode::F1) {
             self.show_help = !self.show_help;
         }
@@ -49,12 +64,10 @@ impl Application {
             self.full_screen = !self.full_screen;
             window::set_fullscreen(self.full_screen);
         }
-        if let Some(text_command_request) = self.console.update(&self.aircraft_manager) {
-            self.ipc_manager.send(radar_to_ui::PacketType::ApiRequest(ApiRequestType::TextCommand(text_command_request)));
-        }
+        
 
         // Deal with any packets from the UI
-        for message in self.ipc_manager.poll(MAX_IPC_MESSAGES) {
+        for message in self.api_link.poll(MAX_IPC_MESSAGES) {
             match message {
                 Message::AircraftDataUpdate(aircraft_updates) => self.aircraft_manager.handle_aircraft_updates(aircraft_updates),
                 Message::LogMessage(log_message) => self.console.handle_log_message(log_message),
