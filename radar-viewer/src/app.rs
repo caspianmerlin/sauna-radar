@@ -44,7 +44,7 @@ impl Application {
         // Deal with any key presses
         let mouse_position = mouse_position();
         let ui_has_mouse = root_ui().is_mouse_over(Vec2::new(mouse_position.0, mouse_position.1));
-        if let Some(text_command_request) = self.console.update(&self.aircraft_manager) {
+        if let Some(text_command_request) = self.console.update(&mut self.aircraft_manager) {
             self.api_link.send(radar_to_ui::PacketType::ApiRequest(ApiRequestType::TextCommand(text_command_request)));
         }
         if !ui_has_mouse {

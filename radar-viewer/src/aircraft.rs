@@ -61,6 +61,16 @@ impl AircraftManager {
         }
         return None;
     }
+    pub fn try_select_by_partial_callsign(&mut self, partial_callsign: &str) -> bool {
+        let partial_callsign = partial_callsign.to_uppercase();
+        for (callsign, aircraft) in self.aircraft_map.iter() {
+            if callsign.to_uppercase().contains(&partial_callsign) {
+                self.current_selected = Some(callsign.clone());
+                return true;
+            }
+        }
+        return false;
+    }
     pub fn current_selected(&self) -> Option<&String> {
         self.current_selected.as_ref()
     }

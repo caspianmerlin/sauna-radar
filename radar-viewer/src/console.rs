@@ -28,13 +28,14 @@ impl Console {
         self.lines.get(start_i..)
     }
 
-    pub fn update(&mut self, aircraft_manager: &AircraftManager) -> Option<TextCommandRequest> {
+    pub fn update(&mut self, aircraft_manager: &mut AircraftManager) -> Option<TextCommandRequest> {
         if let Ok(message) = self.log_rx.try_recv() {
             self.lines.push(message);
         }
 
         if self.input_txt_needs_focus {
             self.input_txt_needs_focus = false;
+            self.input_txt.clear();
             root_ui().set_input_focus(self.input_txt_hash);
         }
 
@@ -46,6 +47,12 @@ impl Console {
                 }
             }
         }
+        if is_key_pressed(KeyCode::KpAdd) {
+            if !self.input_txt.is_empty() && aircraft_manager.try_select_by_partial_callsign(&self.input_txt) {
+                self.input_txt.clear();
+                self.set_focus_to_input();
+            }
+        }
 
         None
     }
@@ -54,7 +61,6 @@ impl Console {
         self.lines.push(log_message);
     }
     pub fn set_focus_to_input(&mut self) {
-        self.input_txt.clear();
         self.input_txt_needs_focus = true;
     }
 
