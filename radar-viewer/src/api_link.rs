@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use common::{ipc::{radar_to_ui, ui_to_radar}, aircraft_data::AircraftUpdate};
 use log::{info, error};
 
-const API_POLL_INTERVAL: Duration = Duration::from_millis(1000);
+const API_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const API_REQUEST_TIMEOUT: Duration = Duration::from_millis(1000);
 const AIRCRAFT_DATA_ENDPOINT: &str = "/api/aircraft/getAllWithFms";
 const LOG_BUFFER_ENDPOINT: &str = "/api/commands/commandBuffer";
@@ -69,6 +69,7 @@ fn api_worker(thread_should_terminate: Arc<AtomicBool>, msg_tx: Sender<ImplMessa
         let log_buffer_endpoint = format!("{hostname}{LOG_BUFFER_ENDPOINT}");
         let text_command_endpoint = format!("{hostname}{TEXT_COMMAND_ENDPOINT}");
         let client = ureq::AgentBuilder::new().timeout(API_REQUEST_TIMEOUT).build();
+        let mut count = 0;
         loop {
             if thread_should_terminate.load(Ordering::Relaxed) {
                 break;
@@ -76,8 +77,10 @@ fn api_worker(thread_should_terminate: Arc<AtomicBool>, msg_tx: Sender<ImplMessa
             std::thread::sleep(API_POLL_INTERVAL);
 
             // Get aircraft data
-            if let Some(data) =  client.get(&aircraft_data_endpoint).call().ok().and_then(|response| response.into_json::<Vec<SimAircraft>>().ok()).map(|vec| vec.into_iter().map(AircraftUpdate::from).collect::<Vec<_>>()) {
-                msg_tx.send(ImplMessage::Message(Message::AircraftDataUpdate(data))).ok();
+            if count == 0 {
+                if let Some(data) =  client.get(&aircraft_data_endpoint).call().ok().and_then(|response| response.into_json::<Vec<SimAircraft>>().ok()).map(|vec| vec.into_iter().map(AircraftUpdate::from).collect::<Vec<_>>()) {
+                    msg_tx.send(ImplMessage::Message(Message::AircraftDataUpdate(data))).ok();
+                }
             }
 
             // Get log buffer
@@ -91,6 +94,8 @@ fn api_worker(thread_should_terminate: Arc<AtomicBool>, msg_tx: Sender<ImplMessa
             if let Ok(PacketType::ApiRequest(ApiRequestType::TextCommand(text_command_request))) = rta_rx.try_recv() {
                 client.post(&text_command_endpoint).send_json(&text_command_request).ok();
             }
+            count += 1;
+            if count == 10 { count = 0};
         }
 
     })
