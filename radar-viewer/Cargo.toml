@@ -19,3 +19,4 @@ toml = "0.8.8"
 fd-lock = "4.0.0"
 dirs = "5.0.1"
 indexmap = "2.1.0"
+log = { version = "0.4.20", features = ["std"] }

@@ -2,6 +2,7 @@ use std::{sync::{atomic::{AtomicBool, Ordering}, Arc, mpsc::{Sender, Receiver, s
 use std::thread;
 
 use common::{ipc::{radar_to_ui, ui_to_radar}, aircraft_data::AircraftUpdate};
+use log::{info, error};
 
 const ATTEMPT_UI_CONNECT_DELAY: Duration = Duration::from_millis(500);
 
@@ -41,6 +42,9 @@ impl IpcManager {
         }
         vec
     }
+    pub fn send(&self, packet: radar_to_ui::PacketType) {
+        self.rtu_tx.send(packet).ok();
+    }
 }
 
 impl Drop for IpcManager {
@@ -69,6 +73,7 @@ fn ipc_worker(thread_should_terminate: Arc<AtomicBool>, msg_tx: Sender<ImplMessa
                     }
                 },
                 Ok(tcp_stream) => {
+                    info!("Connected to Sauna");
                     msg_tx.send(ImplMessage::NewTcpStream(tcp_stream.try_clone().unwrap()));
                     let mut tcp_sender = BufWriter::new(tcp_stream.try_clone().unwrap());
                     loop {
@@ -95,6 +100,7 @@ fn ipc_worker(thread_should_terminate: Arc<AtomicBool>, msg_tx: Sender<ImplMessa
                                 }
                             }
                         } else {
+                            error!("Connection with Sauna lost");
                             break;
                         }
                     }

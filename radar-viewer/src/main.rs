@@ -27,7 +27,7 @@ mod aircraft;
 mod util;
 mod app;
 mod ipc;
-
+mod logger;
 
 
 

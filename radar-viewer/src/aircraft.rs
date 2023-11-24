@@ -37,6 +37,9 @@ impl AircraftManager {
     pub fn draw(&mut self, position_calculator: &PositionCalculator, show_fms_lines: bool) {
         self.aircraft_map.values_mut().for_each(|aircraft| aircraft.draw(position_calculator, show_fms_lines));
     }
+    pub fn get_aircraft(&self, callsign: &str) -> Option<&Aircraft> {
+        self.aircraft_map.get(callsign)
+    }
 }
 
 

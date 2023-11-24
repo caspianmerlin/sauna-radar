@@ -17,7 +17,7 @@ pub struct PartialSectorInfo {
 impl PartialSectorInfo {
     pub fn parse_line(&mut self, value: &str) -> SectorResult<()> {
         self.current_line += 1;
-        println!("Line {}: |{value}|", self.current_line);
+        //println!("Line {}: |{value}|", self.current_line);
         match self.current_line {
             1 => self.name = Some(value.to_owned()),
             2 => self.default_callsign = Some(value.to_owned()),
