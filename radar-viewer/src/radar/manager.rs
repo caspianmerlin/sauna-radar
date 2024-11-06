@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use log::info;
 use macroquad::{color::{Color, BLACK}, input::is_key_pressed, miniquad::KeyCode, window::clear_background};
 
-use crate::aircraft::AircraftManager;
+use crate::{aircraft::AircraftManager, args::Args};
 
 use super::{display::RadarDisplay, loader::RadarDisplayLoader};
 
@@ -15,9 +15,9 @@ pub struct RadarManager {
     active_display: usize,
 }
 impl RadarManager {
-    pub fn new(paths: Vec<PathBuf>) -> RadarManager {
+    pub fn new(args: &Args) -> RadarManager {
         let mut loader = RadarDisplayLoader::new();
-        loader.start_load(paths);
+        loader.start_load(args.sector_file_path.clone(), args.symbology_file_path.clone(), args.asr_file_path.clone(), args.centre_lat, args.centre_lon, args.zoom_level_n_mi);
         Self { loader, radar_displays: vec![], active_display: 0 }
     }
     fn store(&mut self, radar_displays: Vec<RadarDisplay>) {
