@@ -29,10 +29,10 @@ impl Application {
 
     pub fn new() -> Result<Self, Box<dyn Error>> {
         let args = Args::try_parse()?;
-        let console = Console::new(log::Level::Trace);
+        let console = Console::new(log::Level::Info);
         let radar_manager = RadarManager::new(&args);
         let aircraft_manager = AircraftManager::new();
-        let api_link = ApiLink::new(args.hostname.clone(), args.port);
+        let api_link = ApiLink::new(args.api_hostname.clone(), args.port);
 
         Ok(
             Self { args, radar_manager, aircraft_manager, api_link, console, show_help: true, full_screen: false, input: String::new() }
