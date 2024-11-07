@@ -29,8 +29,8 @@ impl Application {
 
     pub fn new() -> Result<Self, Box<dyn Error>> {
         let args = Args::try_parse()?;
-        let console = Console::new(log::Level::Info);
-        let radar_manager = RadarManager::new(args.radar_profile_paths.clone());
+        let console = Console::new(log::Level::Trace);
+        let radar_manager = RadarManager::new(&args);
         let aircraft_manager = AircraftManager::new();
         let api_link = ApiLink::new(args.hostname.clone(), args.port);
 
