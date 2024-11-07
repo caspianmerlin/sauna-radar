@@ -23,20 +23,6 @@ pub struct ApiLink {
 
 impl ApiLink {
     pub fn new(hostname: String, port: u16) -> Self {
-
-
-
-        let sim_aircraft: SimAircraft = serde_json::from_str(INPUT).unwrap();
-        let (mut lines, mut arcs) = (0, 0);
-        for fms_line in sim_aircraft.fms.fms_lines {
-          match fms_line {
-            SimAircraftFmsLine::Arc { .. } => arcs += 1,
-            SimAircraftFmsLine::Line { .. } => lines += 1,
-          }
-        }
-        println!("Lines: {lines}, Arcs: {arcs}");
-
-
         let (rta_tx, rta_rx) = mpsc::channel::<radar_to_ui::PacketType>();
         let (msg_tx, msg_rx) = mpsc::channel::<ImplMessage>();
         let thread_should_terminate = Arc::new(AtomicBool::new(false));
