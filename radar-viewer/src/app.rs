@@ -1,4 +1,4 @@
-use std::{error::Error, ops::DerefMut};
+use std::{error::Error, ops::DerefMut, sync::{atomic::AtomicBool, Arc}};
 
 use clap::Parser;
 use common::{ipc::radar_to_ui, api_requests::ApiRequestType};
@@ -19,7 +19,6 @@ pub struct Application {
     aircraft_manager: AircraftManager,
     api_link: ApiLink,
     console: Console,
-
     show_help: bool,
     full_screen: bool,
     input: String,
@@ -27,12 +26,12 @@ pub struct Application {
 
 impl Application {
 
-    pub fn new() -> Result<Self, Box<dyn Error>> {
-        let args = Args::try_parse()?;
+    pub fn new(program_wants_to_terminate: Arc<AtomicBool>) -> Result<Self, Box<dyn Error>> {
+        let args = Args::parse();
         let console = Console::new(log::Level::Info);
         let radar_manager = RadarManager::new(&args);
         let aircraft_manager = AircraftManager::new();
-        let api_link = ApiLink::new(args.api_hostname.clone(), args.port);
+        let api_link = ApiLink::new(args.api_hostname.clone(), args.port, program_wants_to_terminate, args.terminate_on_connection_fail);
 
         Ok(
             Self { args, radar_manager, aircraft_manager, api_link, console, show_help: true, full_screen: false, input: String::new() }

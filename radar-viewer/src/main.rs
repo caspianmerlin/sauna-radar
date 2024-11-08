@@ -41,64 +41,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut lock_file = fd_lock::RwLock::new(File::create(lock_file_path).expect("Unable to create lock file"));
     let lock_file_guard = lock_file.try_write().expect("Another instance of this application is already running. Closing...");
 
-    let mut app = Application::new()?;
+    let program_wants_to_terminate: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+    let mut app = Application::new(Arc::clone(&program_wants_to_terminate))?;
 
-    loop {
-
-
-        
-
-
-
-
-        //     if is_key_pressed(KeyCode::Enter) {
-        //         if let Some(text_command) = try_parse_text_command(&text_input, &aircraft) {
-        //             ipc_message_sender.send(IpcMessage::TextCommand(text_command)).ok();
-        //             text_input.clear();
-        //         }
-
-        //         root_ui().set_input_focus(txt_input_id);
-        //     }
-        //     if is_key_pressed(KeyCode::Tab) {
-        //         if !text_input.is_empty() {
-        //             let input = text_input.to_uppercase();
-        //             for aircraft in aircraft.iter() {
-        //                 if aircraft.callsign.contains(&input) {
-        //                     text_input = format!("{}, ", aircraft.callsign);
-        //                     break;
-        //                 }
-        //             }
-        //         }
-                
-        //     }
-
-        
-        // root_ui().push_skin(&editbox_skin);
-        // InputText::new(txt_input_id).position(Vec2::new(10.0, window::screen_height() - 30.0)).size(Vec2::new(window::screen_width() - 20., 20.0))
-        // .ui(root_ui().deref_mut(), &mut text_input);
-        // root_ui().pop_skin();
-
+    while !program_wants_to_terminate.load(Ordering::Relaxed) {
         app.update();
         app.draw();
         macroquad_profiler::profiler(Default::default());
         
         next_frame().await
     }
+
+    Ok(())
 }
-
-
-// fn try_parse_text_command(txt: &str, aircraft_list: &Vec<AircraftRecord>) -> Option<TextCommandRequest> {
-//     let mut split = txt.split(&[',', ' ']).filter(|x| !x.is_empty());
-//     let callsign = split.next()?.to_string();
-//     if !aircraft_list.iter().any(|aircraft| aircraft.callsign == callsign) {
-//         return None;
-//     }
-//     let command = split.next()?.to_string();
-//     let args = split.map(|arg| arg.to_owned()).collect::<Vec<_>>();
-//     let request = TextCommandRequest {
-//         callsign,
-//         command,
-//         args
-//     };
-//     Some(request)
-// }

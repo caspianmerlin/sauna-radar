@@ -22,14 +22,14 @@ pub struct ApiLink {
 
 
 impl ApiLink {
-    pub fn new(hostname: String, port: u16) -> Self {
+    pub fn new(hostname: String, port: u16, program_wants_to_terminate: Arc<AtomicBool>, terminate_on_connection_fail: bool) -> Self {
         let (rta_tx, rta_rx) = mpsc::channel::<radar_to_ui::PacketType>();
         let (msg_tx, msg_rx) = mpsc::channel::<ImplMessage>();
         let thread_should_terminate = Arc::new(AtomicBool::new(false));
         
         let hostname = format_hostname(&hostname, port);
         
-        let thread = api_worker(Arc::clone(&thread_should_terminate), msg_tx, rta_rx, hostname);
+        let thread = api_worker(Arc::clone(&thread_should_terminate), msg_tx, rta_rx, hostname, program_wants_to_terminate, terminate_on_connection_fail);
 
 
         ApiLink { thread_should_terminate, rta_tx, msg_rx, thread: Some(thread) }
@@ -63,10 +63,9 @@ impl Drop for ApiLink {
 }
 
 
-fn api_worker(thread_should_terminate: Arc<AtomicBool>, msg_tx: Sender<ImplMessage>, rta_rx: Receiver<radar_to_ui::PacketType>, hostname: String) -> JoinHandle<()> {
+fn api_worker(thread_should_terminate: Arc<AtomicBool>, msg_tx: Sender<ImplMessage>, rta_rx: Receiver<radar_to_ui::PacketType>, hostname: String, program_wants_to_terminate: Arc<AtomicBool>, terminate_on_connection_fail: bool) -> JoinHandle<()> {
     
     thread::spawn(move || {
-
         let hostname = hostname;
         let aircraft_data_endpoint = format!("{hostname}{AIRCRAFT_DATA_ENDPOINT}");
         let log_buffer_endpoint = format!("{hostname}{LOG_BUFFER_ENDPOINT}");
@@ -88,11 +87,21 @@ fn api_worker(thread_should_terminate: Arc<AtomicBool>, msg_tx: Sender<ImplMessa
             }
 
             // Get log buffer
-            if let Some(data) = client.get(&log_buffer_endpoint).call().ok().and_then(|response| response.into_json::<Vec<String>>().ok()) {
+            let data = match client.get(&log_buffer_endpoint).call() {
+                Ok( response) => response.into_json::<Vec<String>>().ok(),
+                Err(e) => {
+                    if terminate_on_connection_fail { break; }
+                    else {
+                        continue;
+                    }
+                }
+            };
+            if let Some(data) = data {
                 for log_msg in data {
                     msg_tx.send(ImplMessage::Message(Message::LogMessage(log_msg))).ok();
                 }
             }
+
 
             // Send any requests if there are any to send
             if let Ok(PacketType::ApiRequest(ApiRequestType::TextCommand(text_command_request))) = rta_rx.try_recv() {
@@ -101,6 +110,8 @@ fn api_worker(thread_should_terminate: Arc<AtomicBool>, msg_tx: Sender<ImplMessa
             count += 1;
             if count == 10 { count = 0};
         }
+
+        program_wants_to_terminate.store(true, Ordering::Relaxed);
 
     })
 }

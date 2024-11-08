@@ -14,6 +14,10 @@ pub struct Args {
     #[arg(short, value_name = "API_PORT")]
     pub port: u16,
 
+    /// Whether the application should terminate when it loses connection with the API
+    #[arg(short = 't', action, value_name = "TERMINATE_ON_CONNECTION_FAIL")]
+    pub terminate_on_connection_fail: bool,
+
     /// Path to sector file (.sct)
     #[arg(short, value_name = "SECTOR_FILE_PATH")]
     pub sector_file_path: PathBuf,
