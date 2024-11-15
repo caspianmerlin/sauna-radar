@@ -40,7 +40,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let lock_file_path = util::get_config_dir().unwrap().join(".radarlockfile");
 
     // Create directory
-    create_dir_all(&lock_file_path)?;
+    create_dir_all(&util::get_config_dir().unwrap())?;
 
     let mut lock_file = fd_lock::RwLock::new(File::create(lock_file_path).expect("Unable to create lock file"));
     let lock_file_guard = lock_file.try_write().expect("Another instance of this application is already running. Closing...");
