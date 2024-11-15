@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{fs::File, io::{BufReader, BufWriter, Write}, sync::{mpsc::{self, Receiver, TryRecvError, Sender}, Mutex, Arc, atomic::{AtomicBool, Ordering}}, thread, net::TcpStream, path::PathBuf, ops::DerefMut, error::Error};
+use std::{error::Error, fs::{create_dir_all, File}, io::{BufReader, BufWriter, Write}, net::TcpStream, ops::DerefMut, path::PathBuf, sync::{atomic::{AtomicBool, Ordering}, mpsc::{self, Receiver, Sender, TryRecvError}, Arc, Mutex}, thread};
 
 use app::Application;
 use args::Args;
@@ -38,6 +38,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Attempt to obtain exclusive write access to the lockfile, creating it if it is not there.
     // If this fails, another instance of this application is already running so we close.
     let lock_file_path = util::get_config_dir().unwrap().join(".radarlockfile");
+
+    // Create directory
+    create_dir_all(&lock_file_path)?;
+
     let mut lock_file = fd_lock::RwLock::new(File::create(lock_file_path).expect("Unable to create lock file"));
     let lock_file_guard = lock_file.try_write().expect("Another instance of this application is already running. Closing...");
 
